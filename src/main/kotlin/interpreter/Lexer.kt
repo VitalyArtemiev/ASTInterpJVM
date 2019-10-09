@@ -2,8 +2,8 @@ package interpreter
 
 import java.io.File
 
-public enum class tokenTypeEnum {TBD, startBlock, endBlock, openParenthesis, closeParenthesis, value, variableDeclaration,
-    variableName, ifStmt, whileStmt, forStmt,  assignOP, plusOP, minusOP, printVarTable}
+public enum class tokenTypeEnum {TBD, startBlock, endBlock, openParenthesis, closeParenthesis, colon, comma, value, variableDeclaration,
+    identifier, type, ifStmt, whileStmt, forStmt, assignOP, plusOP, minusOP, printVarTable, EOF}
 
 public data class  Token (val line: Int, var text: String, var tokenType: tokenTypeEnum = tokenTypeEnum.TBD){
     val tokenized: Boolean
@@ -18,6 +18,7 @@ class Lexer(var terminals: String) {
             result.addAll(getTokens(line, i))
         }
 
+        result.add(Token(0, "", tokenTypeEnum.EOF))
         return result
     }
 
