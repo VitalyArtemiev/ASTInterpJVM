@@ -7,7 +7,7 @@ import kotlin.reflect.KProperty
 open class ASTNode(numChildren: Int) {
     var LineIndex: Int = 0
     var text: String = ""
-    protected lateinit var children: ArrayList<ASTNode>
+    var children: ArrayList<ASTNode> = ArrayList(numChildren)
 }
 
 class nodeList
@@ -22,15 +22,6 @@ class seqNode(numNodes: Int): ASTNode(numNodes)  {
 
     fun addNode(node: ASTNode) {
         children.add(node)
-    }
-
-    private var curNodeIndex = 0
-
-    val curNode: ASTNode? //todo: test, possible bug
-        get() = nodes[curNodeIndex]
-
-    fun advance() {
-        curNodeIndex += 1
     }
 }
 
@@ -63,13 +54,19 @@ class unOp: ASTNode(1) {
 
 class AST {
     lateinit var root: seqNode
-    lateinit var crawler: TreeCrawler<ASTNode> = TreeCrawler(seqNode)
+    lateinit var crawler: TreeCrawler<ASTNode>
 }
 
-class TreeCrawler<T> {
-    class History<T>(var node: T) {
+class TreeCrawler {
+    class History(var node: ASTNode) {
         var lastVisited: Int = -1
     }
-    val stack = Stack<History<T>>()
+    val stack = Stack<History>()
+    
+    lateinit var curNode: ASTNode
+    
+    fun visitChild(index: Int) {
+        curNode = curNode.children[index]
+    }
 
 }

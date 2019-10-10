@@ -2,8 +2,17 @@ package interpreter
 
 import java.io.File
 
-public enum class tokenTypeEnum {TBD, startBlock, endBlock, openParenthesis, closeParenthesis, colon, comma, value, variableDeclaration,
-    identifier, type, ifStmt, whileStmt, forStmt, assignOP, plusOP, minusOP, printVarTable, EOF}
+public enum class tokenTypeEnum {TBD,
+    startBlock, endBlock, openParenthesis, closeParenthesis,
+    colon, comma,
+    value,
+    varDecl, funDedcl,
+    identifier, type,
+    ifStmt, whileStmt, forStmt,
+    assignOP, plusOP, minusOP,
+    equal, less, greater, lequal, gequal, notEqual,
+    printVarTable,
+    EOF}
 
 public data class  Token (val line: Int, var text: String, var tokenType: tokenTypeEnum = tokenTypeEnum.TBD){
     val tokenized: Boolean

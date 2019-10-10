@@ -39,4 +39,10 @@ fun main(args: Array<String>) {
     var tokens = l.lex(path)
 
     val p = Parser(/*nonTerminalsText*/)
+
+    var tree = p.parse(tokens)
+
+    val r = Runner()
+
+    r.run()
 }

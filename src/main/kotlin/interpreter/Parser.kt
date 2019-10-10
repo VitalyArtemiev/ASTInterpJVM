@@ -68,8 +68,11 @@ class Parser() {
         return result
     }
 
-    fun optional(l: () -> Unit): Boolean {
-        l()
+    fun optional(l: () -> Boolean): Boolean {
+        val a = iter.save()
+        if (!l()) {
+            iter.revert(a)
+        }
         return true
     }
 
@@ -91,10 +94,22 @@ class Parser() {
     }
 
     fun decl(): Boolean {
-        return ident() &&
+        val token = iter.next()
+
+        when (token.tokenType) {
+            tokenTypeEnum.varDecl -> {}
+            tokenTypeEnum.funDedcl -> {}
+            else -> {return(false)}
+        }
+
+    }
+
+    fun varDecl(): Boolean {
+        return consume(tokenTypeEnum.varDecl) &&
+                ident() &&
                 typeDecl() &&
                 optional {
-                    ass_op()
+                    consume(tokenTypeEnum.equal) &&
                     expr()
                 }
     }
@@ -123,6 +138,8 @@ class Parser() {
         return tryOnce{assStmt()} ||
                 tryOnce{funStmt()}
     }
+
+
 
     private fun assStmt(): Boolean { //final, no need for tryOnce TODO OR IS THERE??? because of expr
         tree.crawler.addNode(assStmt())
@@ -155,11 +172,15 @@ class Parser() {
         return true
     }
 
+    fun expr(): Boolean {
+        return Random.nextBool()
+    }
+    fun simpExpr(): Boolean {return Random.nextBool()}
+
 }
 
 fun Random.nextBool() = (Random.nextBits(1) == 1)
 
 
-fun expr(): Boolean {return Random.nextBool()}
-fun simpExpr(): Boolean {return Random.nextBool()}
+
 fun ident(): Boolean {return Random.nextBool()}
