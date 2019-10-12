@@ -51,10 +51,18 @@ class unOp: ASTNode(1) {
         }
 }
 
+class value(): ASTNode(0) {
+    var value: Int = 0
+}
+
+class variable: ASTNode(0) {
+    var index: Int = -1
+}
 
 class AST {
     lateinit var root: seqNode
-    lateinit var crawler: TreeCrawler<ASTNode>
+    lateinit var crawler: TreeCrawler
+    lateinit var varList:
 }
 
 class TreeCrawler {

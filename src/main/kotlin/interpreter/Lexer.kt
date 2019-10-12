@@ -19,7 +19,12 @@ public data class  Token (val line: Int, var text: String, var tokenType: tokenT
         get() = tokenType == tokenTypeEnum.TBD
 }
 
-class Lexer(var terminals: String) {
+class Lexer {
+    constructor (terminals: String) {
+        val INT = Regex("[-]?[0-9]+")
+        val DOUBLE = Regex("$INT((\\.[0-9]+)?([eE][-+]?[0-9]+)?)")
+    }
+
     fun lex(source: String): ArrayList<Token> {
         var result = ArrayList<Token>()
 
