@@ -62,7 +62,7 @@ class variable: ASTNode(0) {
 class AST {
     lateinit var root: seqNode
     lateinit var crawler: TreeCrawler
-    lateinit var varList:
+    //lateinit var varList:
 }
 
 class TreeCrawler {

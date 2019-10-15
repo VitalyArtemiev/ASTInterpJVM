@@ -40,7 +40,7 @@ class Parser() {
         return tree
     }
 
-    private fun consume(token: tokenTypeEnum): Boolean =  iter.next().tokenType == token
+    private fun consume(token: TokenTypeEnum): Boolean =  iter.next().tokenType == token
 
     fun tryOnce(l: () -> Boolean): Boolean {
         val a = iter.save()
@@ -87,45 +87,51 @@ class Parser() {
     }
 
     fun block() {
-        consume(tokenTypeEnum.startBlock)
+        consume(TokenTypeEnum.startBlock)
         trySeveral { decl() }
         trySeveral { stmt() }
-        consume(tokenTypeEnum.endBlock)
+        consume(TokenTypeEnum.endBlock)
     }
 
     fun decl(): Boolean {
         val token = iter.next()
 
         when (token.tokenType) {
-            tokenTypeEnum.varDecl -> {}
-            tokenTypeEnum.funDedcl -> {}
+            TokenTypeEnum.varDecl -> {}
+            TokenTypeEnum.funDecl -> {}
             else -> {return(false)}
         }
-
+        return true
     }
 
     fun varDecl(): Boolean {
-        return consume(tokenTypeEnum.varDecl) &&
+        return consume(TokenTypeEnum.varDecl) &&
                 ident() &&
                 typeDecl() &&
                 optional {
-                    consume(tokenTypeEnum.equal) &&
+                    consume(TokenTypeEnum.equal) &&
                     expr()
                 }
     }
 
     fun typeDecl(): Boolean {
-        consume(tokenTypeEnum.colon) &&
+        consume(TokenTypeEnum.colon) &&
                 type()
         return true
     }
 
     fun type(): Boolean {
         var token = iter.next()
-        if (token.tokenType != tokenTypeEnum.type) {
+        if (token.tokenType != TokenTypeEnum.type) {
             return false
         } else {
-            token.text
+            when (token.text) {
+                "int" -> {}
+                "float" -> {}
+                "bool" -> {}
+                else -> throw Exception("Incorrect type wtf")
+            }
+            return true
         }
     }
 
@@ -142,30 +148,30 @@ class Parser() {
 
 
     private fun assStmt(): Boolean { //final, no need for tryOnce TODO OR IS THERE??? because of expr
-        tree.crawler.addNode(assStmt())
-        emit
+        //tree.crawler.addNode(assStmt())
+        //emit
         val result = ident() &&
-                consume(tokenTypeEnum.assignOP) &&
+                consume(TokenTypeEnum.assignOP) &&
                 expr()
 
 
-        commit
+        //commit
         return result
     }
 
     private fun funStmt(): Boolean {
         return ident() &&
-                consume(tokenTypeEnum.openParenthesis) &&
+                consume(TokenTypeEnum.openParenthesis) &&
                 tryOnce { expr() } &&
                 trySeveral {
-                    consume(tokenTypeEnum.comma) &&
+                    consume(TokenTypeEnum.comma) &&
                     expr()
                 } &&
-                consume(tokenTypeEnum.closeParenthesis)
+                consume(TokenTypeEnum.closeParenthesis)
     }
 
     private fun strStmt(): Boolean {
-
+        return true
     }
 
     fun ass_op(): Boolean {

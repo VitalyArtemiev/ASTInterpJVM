@@ -44,5 +44,5 @@ fun main(args: Array<String>) {
 
     val r = Runner()
 
-    r.run()
+    r.run(tree)
 }
