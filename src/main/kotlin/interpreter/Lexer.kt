@@ -3,7 +3,7 @@ package interpreter
 import java.io.File
 
 enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
-    TBD("TBD"),
+    TBD("(?!x)x"),
     startBlock("^\\{"), endBlock("^\\}"), openParenthesis("^\\("), closeParenthesis("^\\)"),
     colon("^:"), comma("^,"),
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
@@ -14,7 +14,7 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     equal("^ *= *"), less("^ *< *"), greater("^ *> *"), lequal("^ *<= *"),
     gequal("^ *>= *"), notEqual("^ *<> *"),
     printVarTable("^\$PRINTVARTABLE"),
-    EOF("EOF")
+    EOF("(?!x)x")
 }
 
 public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD){
@@ -37,6 +37,39 @@ class Lexer {
 
         result.add(Token(0, "", TokenTypeEnum.EOF))
         return result
+    }
+
+    private fun getTokensSimple(line: String, lineIndex: Int): Array<Token> {
+        val list = ArrayList<Token>(8)
+
+        val iterator = line.split(Regex("\\b")).iterator()
+
+        while (iterator.hasNext()) {
+            var temp = iterator.next().trim()
+
+            if (temp == ".") {
+                temp = list.removeAt(list.lastIndex).text + '.' + iterator.next()
+            }
+            if (temp == "") {continue}
+
+            var a: Int = ( 2 )
+
+            var matchFound: TokenTypeEnum  = TokenTypeEnum.TBD
+            for (pattern in TokenTypeEnum.values()) {
+                if (pattern.regex.matches(temp)) {
+                    matchFound = pattern
+                    break
+                }
+            }
+
+            if (matchFound == TokenTypeEnum.TBD) {
+
+            }
+
+            val token = Token(lineIndex, temp, matchFound)
+        }
+
+        return list.toTypedArray()
     }
 
     private fun getTokens(line: String, lineIndex: Int): Array<Token> {

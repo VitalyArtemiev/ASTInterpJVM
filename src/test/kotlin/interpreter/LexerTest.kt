@@ -10,7 +10,7 @@ val source1 = "var a: int = 5\n" +
         "c = a + b + 1.234"
 
 val source2 = "{\n" +
-        "    a:= 1\n" +
+        "    a:=-1\n" +
         "    b:= 2 + 3.1415\n" +
         "    c:= a - b\n" +
         "\n" +
@@ -50,23 +50,14 @@ class LexerTest {
 
             val iterator = line.split(Regex("\\b")).iterator()
 
-            iterator.
-
-
-            var prev = ""
             while (iterator.hasNext()) {
-                var cur = iterator.next()
-                var temp = cur.trim()
+                var temp = iterator.next().trim()
 
                 if (temp == ".") {
-                    list.dropLast(1)
-                    temp = prev + '.' + iterator.next()
+                    temp = list.removeAt(list.lastIndex) + '.' + iterator.next()
                 }
                 if (temp != "") {list.add(temp)}
-
-                prev = cur
             }
-
 
             println(list)
         }
