@@ -1,26 +1,23 @@
 package interpreter
 
-import java.io.File
-
 enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     TBD("(?!x)x"),
     startBlock("^\\{"), endBlock("^\\}"), openParenthesis("^\\("), closeParenthesis("^\\)"),
     colon("^:"), comma("^,"),
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
     varDecl("^var"), funDecl("^fun"),
-    identifier("^\\w+"), type("^(int|float|bool)"),
+    type("^(int|float|bool)"), identifier("^\\w+"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"),
-    assignOP("^ *:= *"), plusOP("^ *\\+ *"), minusOP("^ *- *"),
-    equal("^ *= *"), less("^ *< *"), greater("^ *> *"), lequal("^ *<= *"),
-    gequal("^ *>= *"), notEqual("^ *<> *"),
+    assignOP("^:="),
+    plusOP("^\\+"), minusOP("^-"),
+    multOp("^\\*"), divOp("^/"),
+    equal("^="), less("^<"), greater("^>"),
+    notEqual("^<>"), lequal("^<="), gequal("^>="),
     printVarTable("^\$PRINTVARTABLE"),
     EOF("(?!x)x")
 }
 
-public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD){
-    val tokenized: Boolean
-        get() = tokenType == TokenTypeEnum.TBD
-}
+public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD)
 
 class Lexer {
     constructor (terminals: String) {
@@ -28,7 +25,7 @@ class Lexer {
     }
 
     fun lex(source: String): ArrayList<Token> {
-        var result = ArrayList<Token>()
+        val result = ArrayList<Token>()
 
         //for ((i: Int, line: String) in File(source).readLines().withIndex()) {
         for ((i: Int, line: String) in source.lines().withIndex()) {
@@ -39,77 +36,54 @@ class Lexer {
         return result
     }
 
-    private fun getTokensSimple(line: String, lineIndex: Int): Array<Token> {
+    private fun getTokens(line: String, lineIndex: Int): Array<Token> {
         val list = ArrayList<Token>(8)
 
         val iterator = line.split(Regex("\\b")).iterator()
 
         while (iterator.hasNext()) {
-            var temp = iterator.next().trim()
+            var str = iterator.next().trim()
 
-            if (temp == ".") {
-                temp = list.removeAt(list.lastIndex).text + '.' + iterator.next()
+            if (str == ".") {
+                str = list.removeAt(list.lastIndex).text + '.' + iterator.next()
             }
-            if (temp == "") {continue}
+            if (str == "") {continue}
 
-            var a: Int = ( 2 )
+            var matchFound: TokenTypeEnum  = match(str)
 
-            var matchFound: TokenTypeEnum  = TokenTypeEnum.TBD
-            for (pattern in TokenTypeEnum.values()) {
-                if (pattern.regex.matches(temp)) {
-                    matchFound = pattern
-                    break
+            var tokenText = str //needed for last add
+            while (matchFound == TokenTypeEnum.TBD) {
+                tokenText = tokenText.dropLast(1) //1st op before loop to optimise break
+                matchFound = match(tokenText)
+
+                forLoop@ for (i in 1 until str.length) {
+                    if (matchFound != TokenTypeEnum.TBD) {
+                        list.add(Token(lineIndex, tokenText, matchFound))
+                        tokenText = str.drop(str.length - i)
+                        matchFound = match(tokenText)
+
+                        break@forLoop
+                    }
+
+                    tokenText = tokenText.dropLast(1)
+                    matchFound = match(tokenText)
                 }
             }
 
-            if (matchFound == TokenTypeEnum.TBD) {
-
-            }
-
-            val token = Token(lineIndex, temp, matchFound)
+            list.add(Token(lineIndex, tokenText, matchFound))
         }
 
         return list.toTypedArray()
     }
 
-    private fun getTokens(line: String, lineIndex: Int): Array<Token> {
-        val tokens =  ArrayList<Token>()
-
-        val builder = StringBuilder(line.length)
-
-        val matchList = TokenTypeEnum.values().toMutableSet()
-        var i = 0
-        do {
-
-            while (i < line.length) {
-                var curChars = builder.append(line[i])
-                i++
-                matchList.removeIf {//it.regex.
-                    !it.regex.containsMatchIn(curChars) }
-
-                if (matchList.size == 1) {
-                    break
-                }
+    private fun match(s: String): TokenTypeEnum {
+        var matchFound: TokenTypeEnum = TokenTypeEnum.TBD
+        for (pattern in TokenTypeEnum.values()) {
+            if (pattern.regex.matches(s)) {
+                matchFound = pattern
+                break
             }
-
-            assert(matchList.size == 1, {
-                print("More than one match or none")
-            })
-
-            val match: TokenTypeEnum = matchList.elementAt(0)
-
-            tokens.add(Token(lineIndex, builder.toString(), match))
-
-            builder.clear()
-
-        } while (i < line.length)
-
-
-        var n: Int = 1
-        var chars = line.take(n)
-
-
-
-        return tokens.toTypedArray()
+        }
+        return matchFound
     }
 }

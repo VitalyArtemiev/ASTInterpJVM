@@ -9,7 +9,7 @@ val source1 = "var a: int = 5\n" +
         "var c\n" +
         "c = a + b + 1.234"
 
-val source2 = "{\n" +
+val source2 = "{{{((({\n" +
         "    a:=-1\n" +
         "    b:= 2 + 3.1415\n" +
         "    c:= a - b\n" +
@@ -31,7 +31,7 @@ val source2 = "{\n" +
 class LexerTest {
     @Test
     fun testLexer() {
-        var str = "var a: int = 5.182"
+        /*var str = "var a: int = 5.182"
 
         var list = ArrayList<String>(8)
         str.split(Regex("\\b")).forEach {val temp = it.trim(); if (temp != "") {list.add(temp)} }
@@ -60,7 +60,7 @@ class LexerTest {
             }
 
             println(list)
-        }
+        }*/
 
 
         /*Matcher().
@@ -69,10 +69,10 @@ class LexerTest {
         var result = r.matchEntire("va")!!*/
 
         //print(result.range)
-        /*var l = Lexer("")
+        var l = Lexer("")
 
-        var tokens = l.lex(source1)
-        print(tokens.toString())*/
+        var tokens = l.lex(source2)
+        print(tokens.toString())
     }
 
 }
