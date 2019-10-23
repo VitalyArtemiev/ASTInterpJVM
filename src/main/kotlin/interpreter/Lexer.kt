@@ -1,38 +1,49 @@
 package interpreter
 
+import java.io.File
+
 enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
-    TBD("(?!x)x"),
+    TBD("(?!x)x"), //match none
+    lineComment("^#"),
     startBlock("^\\{"), endBlock("^\\}"), openParenthesis("^\\("), closeParenthesis("^\\)"),
     colon("^:"), comma("^,"),
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
     varDecl("^var"), funDecl("^fun"),
-    type("^(int|float|bool)"), identifier("^\\w+"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"),
-    assignOP("^:="),
-    plusOP("^\\+"), minusOP("^-"),
+    printVarTable("^_PRINTVARTABLE"),
+    type("^(int|float|bool)"), identifier("^\\w+"),
+    assignOp("^:="), memberOp("^\\."),
+    plusOP("^\\+"), minusOp("^-"),
     multOp("^\\*"), divOp("^/"),
     equal("^="), less("^<"), greater("^>"),
     notEqual("^<>"), lequal("^<="), gequal("^>="),
-    printVarTable("^\$PRINTVARTABLE"),
-    EOF("(?!x)x")
+    EOF("(?!x)x") //match none
 }
 
-public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD)
+public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD) {
+    val isTBD = {
+        print("WTF TBD $this")
+        tokenType == TokenTypeEnum.TBD
+    }
+}
 
 class Lexer {
     constructor (terminals: String) {
 
     }
 
+    val errors = ArrayList<Pair<Int, String>>()
+
     fun lex(source: String): ArrayList<Token> {
         val result = ArrayList<Token>()
 
-        //for ((i: Int, line: String) in File(source).readLines().withIndex()) {
-        for ((i: Int, line: String) in source.lines().withIndex()) {
+        val lines = File(source).readLines()
+
+        for ((i, line: String) in lines.withIndex()) {
             result.addAll(getTokens(line, i))
         }
 
-        result.add(Token(0, "", TokenTypeEnum.EOF))
+        result.add(Token(lines.size, "End of file <$source>", TokenTypeEnum.EOF))
         return result
     }
 
@@ -44,22 +55,27 @@ class Lexer {
         while (iterator.hasNext()) {
             var str = iterator.next().trim()
 
-            if (str == ".") {
-                str = list.removeAt(list.lastIndex).text + '.' + iterator.next()
-            }
             if (str == "") {continue}
+
+            if (str == ".") {
+                if ((list.last().tokenType == TokenTypeEnum.intValue)) {
+                    str = list.removeAt(list.lastIndex).text + '.' + iterator.next()
+                }
+            }
 
             var matchFound: TokenTypeEnum  = match(str)
 
             var tokenText = str //needed for last add
             while (matchFound == TokenTypeEnum.TBD) {
                 tokenText = tokenText.dropLast(1) //1st op before loop to optimise break
+
                 matchFound = match(tokenText)
 
                 forLoop@ for (i in 1 until str.length) {
                     if (matchFound != TokenTypeEnum.TBD) {
                         list.add(Token(lineIndex, tokenText, matchFound))
-                        tokenText = str.drop(str.length - i)
+
+                        tokenText = str.drop(str.length - i).trimStart()
                         matchFound = match(tokenText)
 
                         break@forLoop
@@ -67,6 +83,11 @@ class Lexer {
 
                     tokenText = tokenText.dropLast(1)
                     matchFound = match(tokenText)
+                }
+
+                if (tokenText == "") { //doesnt match anything
+                    errors.add(Pair(lineIndex, str))
+                    break
                 }
             }
 

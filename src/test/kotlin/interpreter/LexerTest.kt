@@ -3,13 +3,14 @@ package interpreter
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 val source1 = "var a: int = 5\n" +
         "var b: int = 6\n" +
         "var c\n" +
-        "c = a + b + 1.234"
+        "c :=- a + b + 1.234"
 
-val source2 = "{{{((({\n" +
+val source2 = "{\n" +
         "    a:=-1\n" +
         "    b:= 2 + 3.1415\n" +
         "    c:= a - b\n" +
@@ -25,7 +26,7 @@ val source2 = "{{{((({\n" +
         "                        \n" +
         "    b:= a * c\n" +
         "\n" +
-        "    printVarTable\n" +
+        "    _PRINTVARTABLE\n" +
         "}"
 
 class LexerTest {
@@ -71,8 +72,11 @@ class LexerTest {
         //print(result.range)
         var l = Lexer("")
 
-        var tokens = l.lex(source2)
-        print(tokens.toString())
+        var tokens = l.lex("source.tl")
+        println(tokens.toString())
+        println("lexical errors: \n" + l.errors.toString())
+
+        assertEquals(1, l.errors.size, "lexical errors: \n" + l.errors.toString())
     }
 
 }

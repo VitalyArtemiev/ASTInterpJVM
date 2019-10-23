@@ -151,7 +151,7 @@ class Parser() {
         //tree.crawler.addNode(assStmt())
         //emit
         val result = ident() &&
-                consume(TokenTypeEnum.assignOP) &&
+                consume(TokenTypeEnum.assignOp) &&
                 expr()
 
 
