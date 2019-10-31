@@ -31,7 +31,7 @@ val source2 = "{\n" +
 
 class LexerTest {
     @Test
-    fun testLexer() {
+    fun testLexer(): ArrayList<Token> {
         /*var str = "var a: int = 5.182"
 
         var list = ArrayList<String>(8)
@@ -77,6 +77,8 @@ class LexerTest {
         println("lexical errors: \n" + l.errors.toString())
 
         assertEquals(1, l.errors.size, "lexical errors: \n" + l.errors.toString())
+
+        return tokens
     }
 
 }

@@ -97,21 +97,30 @@ class Parser() {
         val token = iter.next()
 
         when (token.tokenType) {
-            TokenTypeEnum.varDecl -> {}
-            TokenTypeEnum.funDecl -> {}
+            TokenTypeEnum.varDecl -> {
+                varDecl()
+            }
+            TokenTypeEnum.funDecl -> {
+                //funDecl()
+            }
             else -> {return(false)}
         }
         return true
     }
 
     fun varDecl(): Boolean {
-        return consume(TokenTypeEnum.varDecl) &&
+
+        val node =1
+
+        val result = consume(TokenTypeEnum.varDecl) &&
                 ident() &&
                 typeDecl() &&
                 optional {
                     consume(TokenTypeEnum.equal) &&
                     expr()
                 }
+
+        return result
     }
 
     fun typeDecl(): Boolean {
@@ -144,8 +153,6 @@ class Parser() {
         return tryOnce{assStmt()} ||
                 tryOnce{funStmt()}
     }
-
-
 
     private fun assStmt(): Boolean { //final, no need for tryOnce TODO OR IS THERE??? because of expr
         //tree.crawler.addNode(assStmt())
