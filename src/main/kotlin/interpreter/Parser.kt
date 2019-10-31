@@ -11,7 +11,7 @@ class Parser() {
 
     fun parse(tokens: ArrayList<Token>): AST {
         iter = tokens.toRandomAccessIterator()
-        tree = AST()
+        tree = AST(tokens)
 
         prog()
 

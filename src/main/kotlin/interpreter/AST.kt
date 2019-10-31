@@ -5,31 +5,10 @@ import util.toRandomAccessIterator
 import java.util.*
 import kotlin.collections.ArrayList
 
-open class ASTNode(numChildren: Int) {
-    var LineIndex: Int = 0
-    var text: String = ""
-    var children: ArrayList<ASTNode> = ArrayList(numChildren)
-}
-
-class nodeList
-class seqNode(numNodes: Int): ASTNode(numNodes)  {
-    var nodes = nodeList() //such fucking jank
-    operator fun nodeList.get(index: Int): ASTNode {
-        return children[index]!!
-    }
-    operator fun nodeList.set(index: Int, value: ASTNode) {
-        children[index] = value
-    }
-
-    fun addNode(node: ASTNode) {
-        children.add(node)
-    }
-}
-
 enum class eBinOp {bMinus, bPlus, multiply, divide}
 enum class eUnOp {uMinus, uPlus}
 
-class binOp: ASTNode(2) {
+/*class binOp: ASTNode(2) {
 
     lateinit var op: eBinOp
     var arg1: ASTNode
@@ -59,7 +38,7 @@ class value(): ASTNode(0) {
 
 class variable: ASTNode(0) {
     var index: Int = -1
-}
+}*/
 
 class AST(tokens: ArrayList<Token>) {
     val iter = tokens.toRandomAccessIterator()
@@ -67,48 +46,68 @@ class AST(tokens: ArrayList<Token>) {
     lateinit var crawler: TreeCrawler
     //lateinit var varList:
 
-    open class ASTNode(numChildren: Int) {
-        var LineIndex: Int = 0
+    open class ASTNode{
+        var lineIndex: Int = 0
         var text: String = ""
-        var children: ArrayList<ASTNode> = ArrayList(numChildren)
     }
 
-    inner class Prog: ASTNode {
-        constructor() : super(4) {
+    inner class Prog() : ASTNode() {
+        val nodes = ArrayList<ASTNode>(16)
+
+        init {
             var token = iter.peek()
             var i = 0
             while (token.tokenType != EOF) {
                 when (token.tokenType) {
-                    varDecl, funDecl -> children[i++] = Decl()
-                    identifier, startBlock, ifStmt, whileStmt ->  children[i++] = Stmt()
+                    varDecl, funDecl -> nodes[i++] = Decl() //todo: add line information
+                    identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes[i++] = getStmt()
                     else -> {
-                        println("decl or stmt expected")
+                        println("decl or stmt expected but $token found")
                         iter.next()
                     }
                 }
+                token = iter.peek()
             }
         }
     }
 
-    open inner class Decl: ASTNode(3) {
+    open inner class Decl: ASTNode()
 
+    fun getStmt(): Stmt {
+        var token = iter.next()
+        return when (token.tokenType) {
+            ifStmt -> If(getExpr(), getStmt())
+            whileStmt -> While(getExpr(), getStmt())
+            retStmt -> Return(getExpr())
+            startBlock -> Block()
+            else -> throw Exception("This should not be possible")
+        }
     }
-
-    open class Stmt: ASTNode(2) {
-
+    open inner class Stmt: ASTNode()
+    inner class If(val condition: Expr, val s: Stmt): Stmt() {
+        init {
+            lineIndex = 0//todo: add line information
+            text = ""
+        }
     }
+    inner class While(val e: Expr, val s: Stmt): Stmt() //s has to be block
+    inner class Return(val e: Expr): Stmt()
+    inner class Block(): Stmt()
 
-    open class Expr: ASTNode(2) {
-
+    fun getExpr(): Expr {
+        var token = iter.next()
+        when (token.tokenType) {
+            ifStmt -> return()
+        }
     }
+    open inner class Expr: ASTNode()
+    inner class Assign(val)
 
-    class If(val e: Expr, val s: Stmt): Stmt() {
 
-    }
 }
 
 class TreeCrawler {
-    class History(var node: ASTNode) {
+    class History(var node: AST.ASTNode) {
         var lastVisited: Int = -1
     }
     val stack = Stack<History>()

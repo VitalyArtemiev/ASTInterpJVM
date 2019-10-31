@@ -8,6 +8,7 @@ class RandomAccessIterator<T> internal constructor( delegate: ArrayList<T>) : Mu
 
     //fun prev(): T = this[cur--]
     fun peek(): T = this[cur]
+    fun peek2(): T = this[cur+1]
 
     fun save(): Int {
         saved = cur
