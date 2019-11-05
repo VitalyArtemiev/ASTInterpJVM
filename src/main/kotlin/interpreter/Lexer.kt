@@ -1,5 +1,6 @@
 package interpreter
 
+import interpreter.TokenTypeEnum.*
 import java.io.File
 
 enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
@@ -20,10 +21,10 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     EOF("(?!x)x") //match none
 }
 
-public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TokenTypeEnum.TBD) {
+public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
     val isTBD = {
         print("WTF TBD $this")
-        tokenType == TokenTypeEnum.TBD
+        tokenType == TBD
     }
 }
 
@@ -43,7 +44,7 @@ class Lexer {
             result.addAll(getTokens(line, i))
         }
 
-        result.add(Token(lines.size, "End of file <$source>", TokenTypeEnum.EOF))
+        result.add(Token(lines.size, "End of file <$source>", EOF))
         return result
     }
 
@@ -58,7 +59,7 @@ class Lexer {
             if (str == "") {continue}
 
             if (str == ".") {
-                if ((list.last().tokenType == TokenTypeEnum.intValue)) {
+                if ((list.last().tokenType == intValue)) {
                     str = list.removeAt(list.lastIndex).text + '.' + iterator.next()
                 }
             }
@@ -66,13 +67,13 @@ class Lexer {
             var matchFound: TokenTypeEnum  = match(str)
 
             var tokenText = str //needed for last add
-            while (matchFound == TokenTypeEnum.TBD) {
+            while (matchFound == TBD) {
                 tokenText = tokenText.dropLast(1) //1st op before loop to optimise break
 
                 matchFound = match(tokenText)
 
                 forLoop@ for (i in 1 until str.length) {
-                    if (matchFound != TokenTypeEnum.TBD) {
+                    if (matchFound != TBD) {
                         list.add(Token(lineIndex, tokenText, matchFound))
 
                         tokenText = str.drop(str.length - i).trimStart()
@@ -98,8 +99,8 @@ class Lexer {
     }
 
     private fun match(s: String): TokenTypeEnum {
-        var matchFound: TokenTypeEnum = TokenTypeEnum.TBD
-        for (pattern in TokenTypeEnum.values()) {
+        var matchFound: TokenTypeEnum = TBD
+        for (pattern in values()) {
             if (pattern.regex.matches(s)) {
                 matchFound = pattern
                 break
