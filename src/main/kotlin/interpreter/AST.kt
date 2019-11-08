@@ -52,7 +52,7 @@ class AST(tokens: ArrayList<Token>) {
     open class ASTNode (val lineIndex: Int = 0, val text: String = "")
 
     fun expect(tokenType: TokenTypeEnum): Token {
-        var actual = iter.next()
+        val actual = iter.next()
         if (actual.tokenType != tokenType) {
             throw Exception("$tokenType expected, but got $actual")
         }
@@ -90,7 +90,7 @@ class AST(tokens: ArrayList<Token>) {
 
     //data class Scope(val order: Int, Val index: Int = )
     enum class IdentifierType {Val, Var, Fun}
-    val identifiers = HashSet<Identifier>(8)
+    val identifiers = ArrayList<Identifier>(8)
     inner class Identifier(val type: IdentifierType, val decl: Boolean = false,
                            val name: String = iter.next().text): ASTNode() { //name initialized here cuz i needed to pass it in manually in Call()
         val scopeLevel: Int = curScopeLevel
@@ -103,7 +103,7 @@ class AST(tokens: ArrayList<Token>) {
                     throw Exception("Identifier <$name> already exists")
                 }
             } else {
-                if (identifiers.find {it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel <= scopeLevel)} == null) {
+                if (identifiers.find {it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel)} == null) {
                     throw Exception("Identifier <$name> not found")
                 }
             }
@@ -184,7 +184,7 @@ class AST(tokens: ArrayList<Token>) {
             curScopeLevel --
         }
     }
-    inner class Call(): Stmt(){
+    inner class Call(): Expr(){
         val callee: Identifier
         val params = ArrayList<Expr>(1)
         init {
@@ -202,18 +202,62 @@ class AST(tokens: ArrayList<Token>) {
             iter.next()
         }
     }
-    inner class Assign(val identifier: Identifier = Identifier(), val expr: Expr = getExpr()): Stmt()
+    inner class Assign(val identifier: Identifier = Identifier(IdentifierType.Var),
+                       val expr: Expr = getExpr()): Stmt()
+        fun getRelevantIdentifier(name: String): Identifier {
+        val candidates = identifiers.filter { it.name == name &&
+                (it.scopeIndex == curScopeIndex || it.scopeLevel < curScopeLevel) }
+        if (candidates.count() == 0) {
+            throw Exception("Identifier <$name> not found")
+        }
+
+        return candidates.maxBy{ it.scopeLevel }!! //literally can't be null
+    }
 
     fun getExpr(): Expr {
-        var token = iter.next()
+        var save = iter.save()
+        var f1 = Factor()
+        var op = BinOp()
+
+        optional {
+            trySeveral {
+                binOp
+                Factor
+            }
+        }
+
+
+        var first = iter.next()
+        var second = iter.peek()
+        when () {
+
+        }
+
         when (token.tokenType) {
             intValue, boolValue, floatValue -> return Value()
             identifier -> { //check call or var
-                return Var
+                var ident = getRelevantIdentifier(token.text)
+                when (ident.type) {
+                    IdentifierType.Var -> {return Variable()}
+                    IdentifierType.Fun -> {return Call()}
+                }
             }
             plusOP, minusOp, multOp, divOp -> {}
             equal, less, greater, notEqual, lequal, gequal -> {}
             else -> throw Exception("Malformed expression: got $token")
+        }
+    }
+
+    fun getBinOp(): Expr {
+        var f1 = Factor()
+        var token = iter.next()
+        var f2 = Factor() // getExpr()
+        when (token.tokenType) {
+            plusOP -> {return Sum}
+            minusOp -> {}
+            multOp -> {}
+            divOp-> {}
+            else -> {throw Exception("Could not find binOp, found <$token>")}
         }
     }
 
@@ -223,7 +267,10 @@ class AST(tokens: ArrayList<Token>) {
     inner class Mult(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
     inner class Div(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
     inner class Comp(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
-    inner class Value(): Expr()
+    open inner class Value(): Expr()
+    inner class Variable(): Value()
+    inner class Constant(): Value()
+    inner class Factor()
 
 
 }
