@@ -214,6 +214,9 @@ class AST(tokens: ArrayList<Token>) {
         return candidates.maxBy{ it.scopeLevel }!! //literally can't be null
     }
 
+    val boolOps = setOf (notOp, andOp, orOP, xorOp)
+    val numOps = setOf (plusOP, minusOp, multOp, divOp)
+
     fun getExpr(): Expr {
         var save = iter.save()
         var f1 = Factor()

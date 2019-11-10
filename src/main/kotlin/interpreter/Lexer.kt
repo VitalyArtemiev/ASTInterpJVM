@@ -12,12 +12,16 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     varDecl("^var"), funDecl("^fun"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"), retStmt("^return"),
     printVarTable("^_PRINTVARTABLE"),
-    type("^(int|float|bool)"), identifier("^\\w+"),
+    type("^(int|float|bool)"),
     assignOp("^:="), memberOp("^\\."),
-    plusOP("^\\+"), minusOp("^-"),
+    plusOP("^\\+"), minusOp("^-"), unaryMinusOp("^-"),
     multOp("^\\*"), divOp("^/"),
+    powOp("^\\^"),
+    orOP("^or"), notOp("^not"),
+    andOp("^and"), xorOp("xor"),
     equal("^="), less("^<"), greater("^>"),
     notEqual("^<>"), lequal("^<="), gequal("^>="),
+    identifier("^\\w+"),
     EOF("(?!x)x") //match none
 }
 
@@ -27,6 +31,16 @@ public data class  Token (val line: Int, var text: String, var tokenType: TokenT
         tokenType == TBD
     }
 }
+
+fun <T> ArrayList<T>.pop(): T {
+    return removeAt(lastIndex)
+}
+
+val boolOps = setOf (notOp, andOp, orOP, xorOp)
+val numOps = setOf (plusOP, minusOp, divOp, multOp, powOp)
+
+val ops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
+val laops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
 
 class Lexer {
     constructor (terminals: String) {

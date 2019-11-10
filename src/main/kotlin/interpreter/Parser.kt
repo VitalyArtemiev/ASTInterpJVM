@@ -192,6 +192,66 @@ class Parser() {
 
 }
 
+fun toRPN(s:  ArrayList<Token>) : ArrayList<Token>{
+    //s = list(s)
+
+    var p: Token
+    var l = ArrayList<Token>()
+
+    if (s[0].tokenType == TokenTypeEnum.minusOp){
+        s[0].tokenType = TokenTypeEnum.unaryMinusOp
+    }
+
+    for (i in 1 until s.size) {
+        if (((s[i - 1].tokenType in ops) or (s[i - 1].tokenType == TokenTypeEnum.openParenthesis))
+            and (s[i].tokenType == TokenTypeEnum.minusOp)) {
+            s[i].tokenType = TokenTypeEnum.unaryMinusOp
+        }
+    }
+
+    val result = ArrayList<Token>()
+    for (c in s) {
+        when (c.tokenType) {
+            TokenTypeEnum.intValue, TokenTypeEnum.floatValue, TokenTypeEnum.boolValue -> {result.add(c)}
+            TokenTypeEnum.openParenthesis -> {l.add(c)}
+            TokenTypeEnum.closeParenthesis -> {
+
+                p = l.pop()
+                while (p.tokenType != TokenTypeEnum.openParenthesis){
+
+                    result.add(p)
+                    if (l.size != 0) {
+                        p = l.pop()
+                    }
+                    else {
+                        print(result)
+                        throw Exception ("error with parentheses")
+                    }
+                }
+            }
+            in ops -> {
+                p = l.last()
+
+                while ((p.tokenType in ops) && ((ops.indexOf(p.tokenType) > ops.indexOf(c.tokenType)) ||
+                            (ops.indexOf(p.tokenType) == ops.indexOf(c.tokenType) && p.tokenType in laops)) &&
+                    (l.size > 0)) {
+                    result.add(l.pop())
+                    p = l.last()
+                }
+
+                l.add(c)
+            }
+            else -> {
+                throw Exception("error in symbols")
+            }
+        }
+    }
+
+    result.addAll(l.reversed())
+
+    return result
+}
+
 fun Random.nextBool() = (Random.nextBits(1) == 1)
 
 
