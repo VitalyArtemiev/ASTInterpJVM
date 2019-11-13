@@ -25,6 +25,14 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     EOF("(?!x)x") //match none
 }
 
+val boolOps = setOf (notOp, andOp, orOP, xorOp)
+val numOps = setOf (plusOP, minusOp, divOp, multOp, powOp)
+
+val ops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
+val laops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
+
+
+
 public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
     val isTBD = {
         print("WTF TBD $this")
@@ -35,12 +43,6 @@ public data class  Token (val line: Int, var text: String, var tokenType: TokenT
 fun <T> ArrayList<T>.pop(): T {
     return removeAt(lastIndex)
 }
-
-val boolOps = setOf (notOp, andOp, orOP, xorOp)
-val numOps = setOf (plusOP, minusOp, divOp, multOp, powOp)
-
-val ops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
-val laops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
 
 class Lexer {
     constructor (terminals: String) {

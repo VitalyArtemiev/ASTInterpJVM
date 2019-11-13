@@ -43,13 +43,13 @@ class variable: ASTNode(0) {
 
 
 class AST(tokens: ArrayList<Token>) {
-    val iter = tokens.toRandomAccessIterator()
+    var iter = tokens.toRandomAccessIterator()
     var root = Prog()
     //lateinit var crawler: TreeCrawler
     var curScopeLevel = 0
     var curScopeIndex = 0
 
-    open class ASTNode (val lineIndex: Int = 0, val text: String = "")
+    open class ASTNode(val lineIndex: Int = 0, val text: String = "")
 
     fun expect(tokenType: TokenTypeEnum): Token {
         val actual = iter.next()
@@ -68,7 +68,7 @@ class AST(tokens: ArrayList<Token>) {
             while (token.tokenType != EOF) {
                 when (token.tokenType) {
                     varDecl, funDecl -> nodes[i++] = Decl() //todo: add line information
-                    identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes[i++] = getStmt()
+                    identifier, startBlock, ifStmt, whileStmt, retStmt -> nodes[i++] = getStmt()
                     else -> {
                         println("decl or stmt expected but $token found")
                         iter.next()
@@ -89,27 +89,33 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     //data class Scope(val order: Int, Val index: Int = )
-    enum class IdentifierType {Val, Var, Fun}
+    enum class IdentifierType { Val, Var, Fun }
+
     val identifiers = ArrayList<Identifier>(8)
-    inner class Identifier(val type: IdentifierType, val decl: Boolean = false,
-                           val name: String = iter.next().text): ASTNode() { //name initialized here cuz i needed to pass it in manually in Call()
+
+    inner class Identifier(
+        val type: IdentifierType, val decl: Boolean = false,
+        val name: String = iter.next().text
+    ) : ASTNode() { //name initialized here cuz i needed to pass it in manually in Call()
         val scopeLevel: Int = curScopeLevel
         val scopeIndex: Int = curScopeIndex
+
         init {
             if (decl) {
-                if (identifiers.find {it.name == name && it.scopeIndex == scopeIndex} == null) {
+                if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(this)
                 } else {
                     throw Exception("Identifier <$name> already exists")
                 }
             } else {
-                if (identifiers.find {it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel)} == null) {
+                if (identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) } == null) {
                     throw Exception("Identifier <$name> not found")
                 }
             }
         }
     }
-    enum class VarType {bool, int, float}
+
+    enum class VarType { bool, int, float }
 
     fun getType(): VarType {
         expect(colon)
@@ -135,31 +141,61 @@ class AST(tokens: ArrayList<Token>) {
             }
         }
     }*/
-    open inner class Decl: ASTNode()
-    inner class VarDecl(val identifier: Identifier, val varType: VarType, var expr: Expr): Decl()
-    inner class FunDecl(val identifier: Identifier, val retType: VarType, var body: Block): Decl()
+    open inner class Decl : ASTNode()
+
+    inner class VarDecl(val identifier: Identifier, val varType: VarType, var expr: Expr) : Decl()
+    inner class FunDecl(val identifier: Identifier, val retType: VarType, var body: Block) : Decl()
 
     fun getStmt(): Stmt {
-        var token = iter.next()
+        val token = iter.peek()
         return when (token.tokenType) {
-            ifStmt -> If(getExpr(), getStmt())
-            whileStmt -> While(getExpr(), getStmt())
-            retStmt -> Return(getExpr())
+            ifStmt -> If()
+            whileStmt -> While()
+            retStmt -> Return()
             startBlock -> Block()
-            //callStmt ?????
-            identifier -> Call()
+            identifier -> {
+                return when (getRelevantIdentifier(token.text).type) {
+                    IdentifierType.Var -> Assign()
+                    IdentifierType.Fun -> CallStmt()
+                    else -> throw Exception("Illegal operation with val $token")
+                }
+            }
             else -> throw Exception("This should not be possible")
         }
     }
-    open inner class Stmt: ASTNode()
-    inner class If(val condition: Expr, val s: Stmt): Stmt() {
+
+    open inner class Stmt : ASTNode()
+    inner class If() : Stmt() {
+        val condition: Expr
+        val s: Stmt
+
         init {
+            expect(ifStmt)
+            condition = getExpr()
+            s = Block()
             //lineIndex = 0//todo: add line information
             //text = ""
         }
     }
-    inner class While(val e: Expr, val s: Stmt): Stmt() //s has to be block
-    inner class Return(val e: Expr): Stmt()
+
+    inner class While() : Stmt() {
+        val condition: Expr
+        val s: Stmt
+        init {
+            expect(whileStmt)
+            condition = getExpr()
+            s = Block()
+            //lineIndex = 0//todo: add line information
+            //text = ""
+        }
+    }
+    inner class Return(): Stmt() {
+        val e: Expr
+        init {
+            expect(retStmt)
+            e = getExpr()
+        }
+    }
     inner class Block(): Stmt() {
         val scopeIndex: Int
         val nodes = ArrayList<ASTNode>(16)
@@ -184,6 +220,7 @@ class AST(tokens: ArrayList<Token>) {
             curScopeLevel --
         }
     }
+    inner class CallStmt(val call: Call = Call()): Stmt()
     inner class Call(): Expr(){
         val callee: Identifier
         val params = ArrayList<Expr>(1)
@@ -214,11 +251,70 @@ class AST(tokens: ArrayList<Token>) {
         return candidates.maxBy{ it.scopeLevel }!! //literally can't be null
     }
 
-    val boolOps = setOf (notOp, andOp, orOP, xorOp)
-    val numOps = setOf (plusOP, minusOp, multOp, divOp)
+    val exprMembers = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp,
+        notOp, andOp, orOP, xorOp,
+        identifier, intValue, floatValue,
+        openParenthesis,
+        closeParenthesis)
 
     fun getExpr(): Expr {
-        var save = iter.save()
+
+        val expr = ArrayList<Token> (3)
+        var token = iter.peek()
+        var last = Token(0, "", TBD)
+        var expectedParentheses = 0;
+        loop@ while(token.tokenType in exprMembers) {
+            when (token.tokenType) {
+                openParenthesis -> expectedParentheses ++
+                closeParenthesis -> expectedParentheses --
+                identifier -> {
+                    var ident = getRelevantIdentifier(token.text)
+                    if (!(last.tokenType == TBD || last.tokenType in ops || last.tokenType == openParenthesis)) {
+                        break@loop
+                    }
+                    when (ident.type) {
+                        IdentifierType.Val -> {
+
+                        }
+                        IdentifierType.Var -> {
+
+                        }
+                        IdentifierType.Fun -> {
+                            Call()
+
+                        }
+                    }
+                }
+                in ops -> {}
+            }
+            expr.add(iter.next())
+            last = token
+            token = iter.peek()
+            when (last.tokenType) {
+                TBD -> {}
+                in ops -> {
+                    if (token.tokenType != identifier) {
+                        throw Exception("Identifier expected, but $token found")
+                    }
+                }
+                identifier -> {
+
+                }
+            }
+        }
+
+        if (expectedParentheses > 0) {
+            throw Exception("Closing parenthesis missing while parsing expression")
+        } else
+        if (expectedParentheses < 0) {
+            throw Exception("Opening parenthesis missing while parsing expression")
+        }
+
+        val rpnExpr = toRPN(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
+        val mainIter = iter
+        iter = rpnExpr.toRandomAccessIterator()
+
+        /*var save = iter.save()
         var f1 = Factor()
         var op = BinOp()
 
@@ -234,7 +330,8 @@ class AST(tokens: ArrayList<Token>) {
         var second = iter.peek()
         when () {
 
-        }
+        }*/
+        token = iter.peek()
 
         when (token.tokenType) {
             intValue, boolValue, floatValue -> return Value()
@@ -262,6 +359,7 @@ class AST(tokens: ArrayList<Token>) {
             divOp-> {}
             else -> {throw Exception("Could not find binOp, found <$token>")}
         }
+
     }
 
     open inner class Expr: ASTNode()
@@ -273,8 +371,11 @@ class AST(tokens: ArrayList<Token>) {
     open inner class Value(): Expr()
     inner class Variable(): Value()
     inner class Constant(): Value()
-    inner class Factor()
+    inner class Term(val left: Factor)
 
+    inner class Factor(val left: Term = Term())
+
+    var a = false
 
 }
 
