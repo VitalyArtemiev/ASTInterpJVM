@@ -1,16 +1,22 @@
 package interpreter
 
 import kotlin.test.Test
-import kotlin.test.*
 
 class ParserTest {
     @Test
     fun testParser() {
         val l = Lexer("")
-        val tokens = l.lex("source3.tl")
+        var tokens = l.lex("sourceExpr.tl")
+
+        tokens.removeAt(tokens.lastIndex)
+        println(tokens)
+
         val p = Parser()
 
-        var tree = p.parse(tokens)
-        println(tree)
+        val rpn = AST.shuntYard(tokens)
+        println(rpn)
+
+        //var tree = p.parse(tokens)
+        //println(tree)
     }
 }

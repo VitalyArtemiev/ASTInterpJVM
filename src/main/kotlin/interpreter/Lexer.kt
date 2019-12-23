@@ -29,11 +29,12 @@ val boolOps = setOf (notOp, andOp, orOP, xorOp)
 val numOps = setOf (plusOP, minusOp, divOp, multOp, powOp)
 
 val ops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
-val laops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
+val unaryOps = setOf (unaryMinusOp, notOp)
+val laOps = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
 
 
 
-public data class  Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
+public data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
     val isTBD = {
         print("WTF TBD $this")
         tokenType == TBD

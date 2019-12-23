@@ -1,10 +1,9 @@
 package interpreter
 
 import interpreter.TokenTypeEnum.*
+import util.Stack
 import util.toRandomAccessIterator
-import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
 
 enum class eBinOp {bMinus, bPlus, multiply, divide}
 enum class eUnOp {uMinus, uPlus}
@@ -115,15 +114,15 @@ class AST(tokens: ArrayList<Token>) {
         }
     }
 
-    enum class VarType { bool, int, float }
+    enum class ValType { bool, int, float }
 
-    fun getType(): VarType {
+    fun getType(): ValType {
         expect(colon)
         val token = expect(type)
         return when (token.text) {
-            "bool" -> VarType.bool
-            "int" -> VarType.int
-            "float" -> VarType.float
+            "bool" -> ValType.bool
+            "int" -> ValType.int
+            "float" -> ValType.float
             else -> throw Exception("Invalid type $token")
         }
     }
@@ -143,8 +142,8 @@ class AST(tokens: ArrayList<Token>) {
     }*/
     open inner class Decl : ASTNode()
 
-    inner class VarDecl(val identifier: Identifier, val varType: VarType, var expr: Expr) : Decl()
-    inner class FunDecl(val identifier: Identifier, val retType: VarType, var body: Block) : Decl()
+    inner class VarDecl(val identifier: Identifier, val varType: ValType, var expr: Expr) : Decl()
+    inner class FunDecl(val identifier: Identifier, val retType: ValType, var body: Block) : Decl()
 
     fun getStmt(): Stmt {
         val token = iter.peek()
@@ -189,6 +188,7 @@ class AST(tokens: ArrayList<Token>) {
             //text = ""
         }
     }
+
     inner class Return(): Stmt() {
         val e: Expr
         init {
@@ -196,6 +196,7 @@ class AST(tokens: ArrayList<Token>) {
             e = getExpr()
         }
     }
+
     inner class Block(): Stmt() {
         val scopeIndex: Int
         val nodes = ArrayList<ASTNode>(16)
@@ -204,9 +205,10 @@ class AST(tokens: ArrayList<Token>) {
             curScopeLevel ++
             scopeIndex = curScopeIndex ++
 
+            var i = 0
             do {
                 var token = iter.peek()
-                var i = 0
+
                 when (token.tokenType) {
                     varDecl, funDecl -> nodes[i++] = Decl() //todo: add line information
                     identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes[i++] = getStmt()
@@ -253,16 +255,16 @@ class AST(tokens: ArrayList<Token>) {
 
     val exprMembers = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp,
         notOp, andOp, orOP, xorOp,
-        identifier, intValue, floatValue,
+        identifier, intValue, floatValue, boolValue,
         openParenthesis,
         closeParenthesis)
 
     fun getExpr(): Expr {
-
         val expr = ArrayList<Token> (3)
         var token = iter.peek()
         var last = Token(0, "", TBD)
         var expectedParentheses = 0;
+
         loop@ while(token.tokenType in exprMembers) {
             when (token.tokenType) {
                 openParenthesis -> expectedParentheses ++
@@ -286,6 +288,7 @@ class AST(tokens: ArrayList<Token>) {
                     }
                 }
                 in ops -> {}
+                else -> { throw Exception("Unexpected token while evaluating expression: $token")}
             }
             expr.add(iter.next())
             last = token
@@ -310,8 +313,8 @@ class AST(tokens: ArrayList<Token>) {
             throw Exception("Opening parenthesis missing while parsing expression")
         }
 
-        val rpnExpr = toRPN(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
-        val mainIter = iter
+        val rpnExpr = Companion.shuntYard(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
+        /*val mainIter = iter
         iter = rpnExpr.toRandomAccessIterator()
 
         /*var save = iter.save()
@@ -342,13 +345,77 @@ class AST(tokens: ArrayList<Token>) {
                     IdentifierType.Fun -> {return Call()}
                 }
             }
-            plusOP, minusOp, multOp, divOp -> {}
-            equal, less, greater, notEqual, lequal, gequal -> {}
+            plusOP, minusOp, multOp, divOp -> {return }
+            equal, less, greater, notEqual, lequal, gequal -> {return }
             else -> throw Exception("Malformed expression: got $token")
         }
+        iter = mainIter
+
+
+        */
+
+        return ASTNode() as Expr
     }
 
-    fun getBinOp(): Expr {
+    /*fun toRPNnodes(): Expr {
+
+        fun Eparser{
+            var operators: Stack of Operator : = empty
+            var operands: Stack of Tree : = empty
+            push(operators, sentinel)
+            E(operators, operands)
+            expect(end)
+            return top(operands)
+        }
+
+        fun E( operators, operands ) {
+            P(operators, operands)
+            while next is a binary operator
+            pushOperator(binary(next), operators, operands)
+            consume
+            P(operators, operands)
+            while top(operators) not = sentinel
+                    popOperator(operators, operands)
+        }
+
+        fun P( operators, operands ) {
+            if next is a v
+                    push(operands, mkLeaf(v))
+            consume
+            else if next = "("
+            consume
+            push(operators, sentinel)
+            E(operators, operands)
+            expect(")")
+            pop(operators)
+            else if next is a unary operator
+            pushOperator(unary(next), operators, operands)
+            consume
+            P(operators, operands)
+            else
+            error
+        }
+
+        fun popOperator( operators, operands ) {
+            if top(operators) is binary
+            const t1 : = pop(operands)
+            const t0 : = pop(operands)
+            push(operands, mkNode(pop(operators), t0, t1))
+            else
+            push(operands, mkNode(pop(operators), pop(operands)))
+        }
+
+        fun pushOperator( op, operators, operands ) {
+            while top(operators) > op
+            popOperator(operators, operands)
+            push(op, operators)
+        }
+
+        return Expr()
+    }*/
+
+
+    /*fun getBinOp(): Expr {
         var f1 = Factor()
         var token = iter.next()
         var f2 = Factor() // getExpr()
@@ -360,23 +427,114 @@ class AST(tokens: ArrayList<Token>) {
             else -> {throw Exception("Could not find binOp, found <$token>")}
         }
 
-    }
+    }*/
 
     open inner class Expr: ASTNode()
-    inner class Neg(val expr: Expr = getExpr()): Expr()
-    inner class Sum(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
-    inner class Mult(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
-    inner class Div(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
-    inner class Comp(val left: Expr = getExpr(), val right: Expr = getExpr()): Expr()
-    open inner class Value(): Expr()
-    inner class Variable(): Value()
-    inner class Constant(): Value()
-    inner class Term(val left: Factor)
+    inner class Neg: Expr() {lateinit var expr: Expr}
+    inner class Sum: Expr() {lateinit var left: Expr; lateinit var right: Expr}
+    inner class Mult: Expr() {lateinit var left: Expr; lateinit var right: Expr}
+    inner class Div: Expr() {lateinit var left: Expr; lateinit var right: Expr}
+    inner class Comp: Expr() {lateinit var left: Expr; lateinit var right: Expr}
+    open inner class Value(val type: ValType): Expr()
+    inner class Variable(type: ValType): Value(type)
+    inner class Constant(type: ValType, value: Any): Value(type)
 
-    inner class Factor(val left: Term = Term())
+    //inner class Term(val left: Factor)
+
+    //inner class Factor(val left: Term = Term())
 
     var a = false
 
+    companion object {
+        fun shuntYard(tokens:  ArrayList<Token>) : ArrayList<Token>{
+            var temp: Token
+            var opStack = Stack<Token>()
+            val outputStack = Stack<Token>()
+            var nodeStack = Stack<ASTNode>()
+
+            /*fun pushResult(token: Token) {
+                if (token.tokenType in ops) {
+                    val arg1 = outputStack.pop()
+                    val leaf1: ASTNode
+                    when (arg1.tokenType) {
+                        floatValue -> leaf1 = Constant(ValType.float, arg1.text.toFloat())
+                        intValue -> leaf1 = Constant(ValType.int, arg1.text.toInt())
+                        boolValue -> leaf1 = Constant(ValType.bool, arg1.text.toBoolean())
+                        in unaryOps -> leaf1 =
+                        in ops ->
+                        else -> leaf1 =
+                    }
+                    if (token.tokenType != TokenTypeEnum.unaryMinusOp) {
+                        val arg2 = outputStack.pop()
+                        when
+
+                    }
+                    else {
+
+                    }
+                }
+            }*/
+
+            //find unary minuses
+            if (tokens[0].tokenType == TokenTypeEnum.minusOp){
+                tokens[0].tokenType = TokenTypeEnum.unaryMinusOp
+            }
+
+            for (i in 1 until tokens.size) {
+                if (((tokens[i - 1].tokenType in ops) or (tokens[i - 1].tokenType == TokenTypeEnum.openParenthesis))
+                    and (tokens[i].tokenType == TokenTypeEnum.minusOp)) {
+                    tokens[i].tokenType = TokenTypeEnum.unaryMinusOp
+                }
+            }
+
+
+            for (token in tokens) {
+                when (token.tokenType) {
+                    TokenTypeEnum.intValue, TokenTypeEnum.floatValue, TokenTypeEnum.boolValue -> {outputStack.add(token)}
+                    TokenTypeEnum.openParenthesis -> {opStack.push(token)}
+                    TokenTypeEnum.closeParenthesis -> {
+
+                        temp = opStack.pop()
+                        while (temp.tokenType != TokenTypeEnum.openParenthesis){
+
+                            outputStack.push(temp)//#############
+                            if (opStack.size != 0) {
+                                temp = opStack.pop()
+                            }
+                            else {
+                                print(outputStack)
+                                throw Exception ("error with parentheses")
+                            }
+                        }
+                    }
+                    in ops -> {
+                        if (opStack.size > 0) {
+                            temp = opStack.peek()
+
+                            while ((temp.tokenType in ops) &&
+                                ((ops.indexOf(temp.tokenType) > ops.indexOf(token.tokenType)) ||
+                                        (ops.indexOf(temp.tokenType) == ops.indexOf(token.tokenType) &&
+                                                temp.tokenType in laOps)) && (opStack.size > 0)) {
+
+                                outputStack.push(opStack.pop()) //#############
+                                if (opStack.size == 0) {break} //jank, implement a proper stack
+                                temp = opStack.peek()
+                            }
+                        }
+
+                        opStack.push(token)
+                    }
+                    else -> {
+                        throw Exception("error in symbols")
+                    }
+                }
+            }
+
+            outputStack.addAll(opStack.reversed()) //#############
+
+            return outputStack.toArrayList()
+        }
+    }
 }
 
 /*class TreeCrawler {

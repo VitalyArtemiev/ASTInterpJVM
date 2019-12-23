@@ -42,7 +42,7 @@ fun main(args: Array<String>) {
 
     var tree = p.parse(tokens)
 
-    val r = Runner()
+    //val r = Runner()
 
-    r.run(tree)
+    //r.run(tree)
 }

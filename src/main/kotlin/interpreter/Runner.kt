@@ -2,6 +2,7 @@ package interpreter
 
 class Variable (val Name: String, var value: Int)
 
+typealias ASTNode = AST.ASTNode
 
 class Runner {
     lateinit var varTable: Array<Variable>
@@ -13,7 +14,7 @@ class Runner {
 
     fun executeNode(node: ASTNode) {
         when (node) {
-            is binOp -> {
+           /* is binOp -> {
                 var leftVal: Number
                 var rightVal: Number
 
@@ -40,7 +41,7 @@ class Runner {
                     eBinOp.multiply -> TODO()
                     eBinOp.divide -> TODO()
                 }
-            }
+            }*/
         }
     }
 
