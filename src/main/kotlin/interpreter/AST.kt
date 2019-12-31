@@ -3,7 +3,6 @@ package interpreter
 import interpreter.TokenTypeEnum.*
 import util.Stack
 import util.toRandomAccessIterator
-import kotlin.collections.ArrayList
 
 enum class eBinOp {bMinus, bPlus, multiply, divide}
 enum class eUnOp {uMinus, uPlus}
@@ -43,7 +42,7 @@ class variable: ASTNode(0) {
 
 class AST(tokens: ArrayList<Token>) {
     var iter = tokens.toRandomAccessIterator()
-    var root = Prog()
+    //var root = Prog()
     //lateinit var crawler: TreeCrawler
     var curScopeLevel = 0
     var curScopeIndex = 0
@@ -313,7 +312,7 @@ class AST(tokens: ArrayList<Token>) {
             throw Exception("Opening parenthesis missing while parsing expression")
         }
 
-        val rpnExpr = Companion.shuntYard(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
+        val rpnExpr = shuntYard(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
         /*val mainIter = iter
         iter = rpnExpr.toRandomAccessIterator()
 
@@ -443,97 +442,93 @@ class AST(tokens: ArrayList<Token>) {
 
     //inner class Factor(val left: Term = Term())
 
-    var a = false
+    fun shuntYard(tokens:  ArrayList<Token>) : ArrayList<Token> {
+        var temp: Token
+        var opStack = Stack<Token>()
+        val outputStack = Stack<Token>()
+        var nodeStack = Stack<ASTNode>()
 
-    companion object {
-        fun shuntYard(tokens:  ArrayList<Token>) : ArrayList<Token>{
-            var temp: Token
-            var opStack = Stack<Token>()
-            val outputStack = Stack<Token>()
-            var nodeStack = Stack<ASTNode>()
+        fun addNode(token: Token) {
+            require(token.tokenType in ops)
 
-            /*fun pushResult(token: Token) {
-                if (token.tokenType in ops) {
-                    val arg1 = outputStack.pop()
-                    val leaf1: ASTNode
-                    when (arg1.tokenType) {
-                        floatValue -> leaf1 = Constant(ValType.float, arg1.text.toFloat())
-                        intValue -> leaf1 = Constant(ValType.int, arg1.text.toInt())
-                        boolValue -> leaf1 = Constant(ValType.bool, arg1.text.toBoolean())
-                        in unaryOps -> leaf1 =
-                        in ops ->
-                        else -> leaf1 =
-                    }
-                    if (token.tokenType != TokenTypeEnum.unaryMinusOp) {
-                        val arg2 = outputStack.pop()
-                        when
-
-                    }
-                    else {
-
-                    }
-                }
+            val arg1 = nodeStack.pop()
+            val leaf1: ASTNode
+            /*when (arg1.tokenType) {
+                floatValue -> leaf1 = Constant(ValType.float, arg1.text.toFloat())
+                intValue -> leaf1 = Constant(ValType.int, arg1.text.toInt())
+                boolValue -> leaf1 = Constant(ValType.bool, arg1.text.toBoolean())
+                in unaryOps -> leaf1 =
+                in ops ->
+                else -> leaf1 =
             }*/
-
-            //find unary minuses
-            if (tokens[0].tokenType == TokenTypeEnum.minusOp){
-                tokens[0].tokenType = TokenTypeEnum.unaryMinusOp
+            if (token.tokenType != TokenTypeEnum.unaryMinusOp) {
+                val arg2 = nodeStack.pop()
             }
+            else {
 
-            for (i in 1 until tokens.size) {
-                if (((tokens[i - 1].tokenType in ops) or (tokens[i - 1].tokenType == TokenTypeEnum.openParenthesis))
-                    and (tokens[i].tokenType == TokenTypeEnum.minusOp)) {
-                    tokens[i].tokenType = TokenTypeEnum.unaryMinusOp
-                }
             }
-
-
-            for (token in tokens) {
-                when (token.tokenType) {
-                    TokenTypeEnum.intValue, TokenTypeEnum.floatValue, TokenTypeEnum.boolValue -> {outputStack.add(token)}
-                    TokenTypeEnum.openParenthesis -> {opStack.push(token)}
-                    TokenTypeEnum.closeParenthesis -> {
-
-                        temp = opStack.pop()
-                        while (temp.tokenType != TokenTypeEnum.openParenthesis){
-
-                            outputStack.push(temp)//#############
-                            if (opStack.size != 0) {
-                                temp = opStack.pop()
-                            }
-                            else {
-                                print(outputStack)
-                                throw Exception ("error with parentheses")
-                            }
-                        }
-                    }
-                    in ops -> {
-                        if (opStack.size > 0) {
-                            temp = opStack.peek()
-
-                            while ((temp.tokenType in ops) &&
-                                ((ops.indexOf(temp.tokenType) > ops.indexOf(token.tokenType)) ||
-                                        (ops.indexOf(temp.tokenType) == ops.indexOf(token.tokenType) &&
-                                                temp.tokenType in laOps)) && (opStack.size > 0)) {
-
-                                outputStack.push(opStack.pop()) //#############
-                                if (opStack.size == 0) {break} //jank, implement a proper stack
-                                temp = opStack.peek()
-                            }
-                        }
-
-                        opStack.push(token)
-                    }
-                    else -> {
-                        throw Exception("error in symbols")
-                    }
-                }
-            }
-
-            outputStack.addAll(opStack.reversed()) //#############
-
-            return outputStack.toArrayList()
         }
+
+        //find unary minuses
+        if (tokens[0].tokenType == minusOp){
+            tokens[0].tokenType = unaryMinusOp
+        }
+
+        for (i in 1 until tokens.size) {
+            if (((tokens[i - 1].tokenType in ops) or (tokens[i - 1].tokenType == openParenthesis))
+                and (tokens[i].tokenType == minusOp)) {
+                tokens[i].tokenType = unaryMinusOp
+            }
+        }
+
+
+        for (token in tokens) {
+            when (token.tokenType) {
+                floatValue -> nodeStack.push(Constant(ValType.float, token.text.toFloat()))
+                intValue -> nodeStack.push(Constant(ValType.int, token.text.toInt()))
+                boolValue -> nodeStack.push(Constant(ValType.bool, token.text.toBoolean()))
+                openParenthesis -> {opStack.push(token)}
+                closeParenthesis -> {
+
+                    temp = opStack.pop()
+                    while (temp.tokenType != openParenthesis){
+
+                        outputStack.push(temp)//#############
+                        if (opStack.size != 0) {
+                            temp = opStack.pop()
+                        }
+                        else {
+                            print(outputStack)
+                            throw Exception ("error with parentheses")
+                        }
+                    }
+                }
+                in ops -> {
+                    if (opStack.size > 0) {
+                        temp = opStack.peek()
+
+                        while ((temp.tokenType in ops) &&
+                            ((ops.indexOf(temp.tokenType) > ops.indexOf(token.tokenType)) ||
+                                    (ops.indexOf(temp.tokenType) == ops.indexOf(token.tokenType) &&
+                                            temp.tokenType in laOps)) && (opStack.size > 0)) {
+
+                            outputStack.push(opStack.pop()) //#############
+                            if (opStack.size == 0) {break} //jank, implement a proper stack
+                            temp = opStack.peek()
+                        }
+                    }
+
+                    opStack.push(token)
+                }
+                else -> {
+                    throw Exception("error in symbols")
+                }
+            }
+        }
+
+        outputStack.addAll(opStack.reversed()) //#############
+
+        return outputStack.toArrayList()
     }
 }
 

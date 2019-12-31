@@ -13,7 +13,10 @@ class ParserTest {
 
         val p = Parser()
 
-        val rpn = AST.shuntYard(tokens)
+        val a = AST(tokens)
+        p.tree = a
+
+        val rpn = p.tree.shuntYard(tokens)
         println(rpn)
 
         //var tree = p.parse(tokens)
