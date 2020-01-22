@@ -258,6 +258,81 @@ class AST(tokens: ArrayList<Token>) {
         openParenthesis,
         closeParenthesis)
 
+    fun getExpr() {
+        var s  = simpExpr()
+        if (iter.peek().tokenType in relOps) {
+            var op = iter.next()
+            var s1 = simpExpr()
+            return Compare(op, s, s1)
+        }
+        return s
+    }
+
+    fun simpExpr(): ASTNode {
+        var unOP = if (iter.peek().tokenType == unaryMinusOp) {
+            iter.next()
+        } else {
+            null
+        }
+
+        var left = getTerm()
+
+        if (unOP != null) {
+            left = unOP(left)
+        }
+
+        while (iter.peek().tokenType == addOps) {
+            var op = iter.next()
+            var t = getTerm()
+            left = binOp(left, op, t)
+        }
+        return left
+    }
+
+    fun getTerm() {
+        var left = getFactor()
+
+        while (iter.peek().tokenType in multOps) {
+            var op = iter.next()
+            var t = getFactor()
+            left = binOP(left, op, t)
+        }
+    }
+
+    fun getFactor(): ASTNode() {
+        var base = getBase()
+        if (iter.peek().tokenType == powOp) {
+            iter.next()
+            var exp = getBase() //getExponent would be the same as getBAse
+            return powOp(base, exp)
+        }
+    }
+
+    fun getBase(): ASTNode() { //
+        when(iter.peek().tokenType) {
+            identifier -> {
+                getRelevantIDentifier(iter.cur().text)
+                funcCall()
+                variable()
+            }
+            openParenthesis -> {
+                var e = getExpr()
+                expect(closeParenthesis)
+                return e
+            }
+            intValue -> {
+                return Value
+            }
+            floatValue -> {
+            }
+            boolValue -> {
+            }
+        }
+
+
+        }
+    }
+
     fun getExpr(): Expr {
         val expr = ArrayList<Token> (3)
         var token = iter.peek()
