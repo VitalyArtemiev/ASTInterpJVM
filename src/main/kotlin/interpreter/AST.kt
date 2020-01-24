@@ -4,48 +4,16 @@ import interpreter.TokenTypeEnum.*
 import util.Stack
 import util.toRandomAccessIterator
 
-enum class eBinOp {bMinus, bPlus, multiply, divide}
-enum class eUnOp {uMinus, uPlus}
-
-/*class binOp: ASTNode(2) {
-
-    lateinit var op: eBinOp
-    var arg1: ASTNode
-        get() = children[0]!!
-        set(node: ASTNode) {
-            children[0] = node
-        }
-    var arg2: ASTNode
-        get() = children[1]!!
-        set(node: ASTNode) {
-            children[1] = node
-        }
-}
-
-class unOp: ASTNode(1) {
-    lateinit var op: eBinOp
-    var arg: ASTNode
-        get() = children[0]!!
-        set(node: ASTNode) {
-            children[0] = node
-        }
-}
-
-class value(): ASTNode(0) {
-    var value: Int = 0
-}
-
-class variable: ASTNode(0) {
-    var index: Int = -1
-}*/
-
-
 class AST(tokens: ArrayList<Token>) {
     var iter = tokens.toRandomAccessIterator()
     //var root = Prog()
     //lateinit var crawler: TreeCrawler
     var curScopeLevel = 0
     var curScopeIndex = 0
+    var maxScopeIndex = 0
+    val scopes = Stack<Int>()
+
+    val functions = ArrayList<FunDecl>() //to keep track of attached blocks
 
     open class ASTNode(val lineIndex: Int = 0, val text: String = "")
 
@@ -65,7 +33,7 @@ class AST(tokens: ArrayList<Token>) {
             var i = 0
             while (token.tokenType != EOF) {
                 when (token.tokenType) {
-                    varDecl, funDecl -> nodes[i++] = Decl() //todo: add line information
+                    varDecl, funDecl -> nodes[i++] = getDecl() //todo: add line information
                     identifier, startBlock, ifStmt, whileStmt, retStmt -> nodes[i++] = getStmt()
                     else -> {
                         println("decl or stmt expected but $token found")
@@ -77,26 +45,80 @@ class AST(tokens: ArrayList<Token>) {
         }
     }
 
+    open inner class Decl : ASTNode()
+
+    inner class VarDecl(val identifier: Identifier, val varType: ValType, var expr: Expr?) : Decl()
+
+    inner class FunDecl(val identifier: Identifier, params: Array<VarDecl>, retType: ValType, var body: Block) : Decl() { //parameter vars are declared in wrong scope
+        init { //register function
+            functions.add(this)
+        }
+    }
+    inner class ConstDecl() //TODO()
+
     fun getDecl(): Decl {
-        var token = iter.next()
+        val token = iter.next()
         return when (token.tokenType) {
-            varDecl -> VarDecl(Identifier(IdentifierType.Var, decl = true), getType(), Expr())
-            funDecl -> FunDecl(Identifier(IdentifierType.Fun, decl = true), getType(), Block())
+            varDecl -> {
+                val id = Identifier(IdentifierType.Var, decl = true)
+                val type = getType()
+                val expr = if (iter.peek().tokenType == equal) {
+                    getExpr()
+                } else null
+                VarDecl(id, type, expr)}
+            funDecl -> {
+                val id = Identifier(IdentifierType.Fun, decl = true)
+                expect(openParenthesis)
+                val params = ArrayList<VarDecl>()
+                var token = iter.next()
+                while (token.tokenType != closeParenthesis) {
+                    params.add(getParDecl())
+                    //TODO: CONSUME COMMA!!!!!!!!!!!!!
+                    token = iter.next()
+                }
+                //closeParenthesis consumed
+
+                val type = if (iter.peek().tokenType == colon) {
+                    getType()
+                } else ValType.none
+
+                val block = Block()
+                val blockScopeLevel = curScopeLevel + 1
+
+                params.forEach {
+                    it.identifier.scopeIndex = block.scopeIndex
+                    it.identifier.scopeLevel = blockScopeLevel
+                }
+
+                FunDecl(id, params.toTypedArray(), type, block)
+            }
             else -> throw Exception("This should not be possible")
         }
     }
 
+    fun getParDecl(): VarDecl {
+        val id = Identifier(IdentifierType.Var, decl = true)
+        val type = getType()
+        val expr = if (iter.peek().tokenType == equal) {
+            getExpr()
+        } else null
+
+        return VarDecl(id, type, expr)
+    }
+
     //data class Scope(val order: Int, Val index: Int = )
-    enum class IdentifierType { Val, Var, Fun }
+    enum class IdentifierType { Const, Var, Fun }
 
     val identifiers = ArrayList<Identifier>(8)
 
     inner class Identifier(
         val type: IdentifierType, val decl: Boolean = false,
-        val name: String = iter.next().text
-    ) : ASTNode() { //name initialized here cuz i needed to pass it in manually in Call()
-        val scopeLevel: Int = curScopeLevel
-        val scopeIndex: Int = curScopeIndex
+        val name: String = iter.next().text //name initialized here cuz i needed to pass it in manually in Call()
+    ) : ASTNode() {
+        var scopeLevel: Int = curScopeLevel
+        var scopeIndex: Int = curScopeIndex
+
+        lateinit var valType: ValType
 
         init {
             if (decl) {
@@ -113,7 +135,7 @@ class AST(tokens: ArrayList<Token>) {
         }
     }
 
-    enum class ValType { bool, int, float }
+    enum class ValType { none, bool, int, float }
 
     fun getType(): ValType {
         expect(colon)
@@ -125,24 +147,6 @@ class AST(tokens: ArrayList<Token>) {
             else -> throw Exception("Invalid type $token")
         }
     }
-
-    /*inner class Type() {
-        val type: VarType
-        init {
-            expect(colon)
-            val token = expect(TokenTypeEnum.type)
-            type = when (token.text) {
-                "bool" -> VarType.bool
-                "int" -> VarType.int
-                "float" -> VarType.float
-                else -> throw Exception("Invalid type $token")
-            }
-        }
-    }*/
-    open inner class Decl : ASTNode()
-
-    inner class VarDecl(val identifier: Identifier, val varType: ValType, var expr: Expr) : Decl()
-    inner class FunDecl(val identifier: Identifier, val retType: ValType, var body: Block) : Decl()
 
     fun getStmt(): Stmt {
         val token = iter.peek()
@@ -201,15 +205,19 @@ class AST(tokens: ArrayList<Token>) {
         val nodes = ArrayList<ASTNode>(16)
         init {
             expect(startBlock)
+
+            scopes.push(curScopeIndex)
+
             curScopeLevel ++
-            scopeIndex = curScopeIndex ++
+            scopeIndex = maxScopeIndex ++
+            curScopeIndex = scopeIndex
 
             var i = 0
             do {
                 var token = iter.peek()
 
                 when (token.tokenType) {
-                    varDecl, funDecl -> nodes[i++] = Decl() //todo: add line information
+                    varDecl, funDecl -> nodes[i++] = getDecl() //todo: add line information
                     identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes[i++] = getStmt()
                     else -> { //EOF handled here
                         throw Exception("decl or stmt expected but $token found")
@@ -219,8 +227,10 @@ class AST(tokens: ArrayList<Token>) {
 
             } while (token.tokenType != endBlock)
             curScopeLevel --
+            curScopeIndex = scopes.pop()
         }
     }
+
     inner class CallStmt(val call: Call = Call()): Stmt()
     inner class Call(): Expr(){
         val callee: Identifier
@@ -240,6 +250,7 @@ class AST(tokens: ArrayList<Token>) {
             iter.next()
         }
     }
+
     inner class Assign(val identifier: Identifier = Identifier(IdentifierType.Var),
                        val expr: Expr = getExpr()): Stmt()
         fun getRelevantIdentifier(name: String): Identifier {
@@ -258,259 +269,102 @@ class AST(tokens: ArrayList<Token>) {
         openParenthesis,
         closeParenthesis)
 
-    fun getExpr() {
-        var s  = simpExpr()
+    fun getExpr(): Expr {
+        val s  = simpExpr()
         if (iter.peek().tokenType in relOps) {
-            var op = iter.next()
-            var s1 = simpExpr()
-            return Compare(op, s, s1)
+            val op = iter.next().tokenType
+            val s1 = simpExpr()
+            return BinOp(s, op, s1)
         }
         return s
     }
 
-    fun simpExpr(): ASTNode {
-        var unOP = if (iter.peek().tokenType == unaryMinusOp) {
-            iter.next()
+    fun simpExpr(): Expr {
+        val unOp = if (iter.peek().tokenType == unaryMinusOp) {
+            iter.next().tokenType
         } else {
             null
         }
 
         var left = getTerm()
 
-        if (unOP != null) {
-            left = unOP(left)
+        if (unOp != null) {
+            left = UnOp(unOp , left)
         }
 
-        while (iter.peek().tokenType == addOps) {
-            var op = iter.next()
-            var t = getTerm()
-            left = binOp(left, op, t)
+        while (iter.peek().tokenType in addOps) {
+            val op = iter.next().tokenType
+            val t = getTerm()
+            left = BinOp(left, op, t)
         }
         return left
     }
 
-    fun getTerm() {
+    fun getTerm(): Expr {
         var left = getFactor()
 
         while (iter.peek().tokenType in multOps) {
-            var op = iter.next()
-            var t = getFactor()
-            left = binOP(left, op, t)
+            val op = iter.next().tokenType
+            val t = getFactor()
+            left = BinOp(left, op, t)
         }
+        return left
     }
 
-    fun getFactor(): ASTNode() {
+    fun getFactor(): Expr {
         var base = getBase()
-        if (iter.peek().tokenType == powOp) {
+        return if (iter.peek().tokenType == powOp) {
             iter.next()
             var exp = getBase() //getExponent would be the same as getBAse
-            return powOp(base, exp)
+            BinOp(base, powOp, exp)
+        } else {
+            base
         }
     }
 
-    fun getBase(): ASTNode() { //
-        when(iter.peek().tokenType) {
+    fun getBase(): Expr {
+        val token = iter.next()
+        when(token.tokenType) {
             identifier -> {
-                getRelevantIDentifier(iter.cur().text)
-                funcCall()
-                variable()
+                val id = getRelevantIdentifier(token.text)
+                when(id.type) {
+                    IdentifierType.Const -> {
+                        Identifier()
+                        return Constant(id.type)
+                    }
+                    IdentifierType.Var -> {
+                        return VarRef()
+                    }
+                    IdentifierType.Fun -> {
+                        return Call()
+                    }
+                }
             }
             openParenthesis -> {
-                var e = getExpr()
+                val e = getExpr()
                 expect(closeParenthesis)
                 return e
             }
             intValue -> {
-                return Value
+                return Constant(ValType.int, token.text.toInt())
             }
             floatValue -> {
+                return Constant(ValType.float, token.text.toFloat())
             }
             boolValue -> {
+                return Constant(ValType.bool, token.text.toBoolean())
             }
-        }
-
-
+            else -> {
+                throw Exception("Impossible state: expected base, got $token")
+            }
         }
     }
-
-    fun getExpr(): Expr {
-        val expr = ArrayList<Token> (3)
-        var token = iter.peek()
-        var last = Token(0, "", TBD)
-        var expectedParentheses = 0;
-
-        loop@ while(token.tokenType in exprMembers) {
-            when (token.tokenType) {
-                openParenthesis -> expectedParentheses ++
-                closeParenthesis -> expectedParentheses --
-                identifier -> {
-                    var ident = getRelevantIdentifier(token.text)
-                    if (!(last.tokenType == TBD || last.tokenType in ops || last.tokenType == openParenthesis)) {
-                        break@loop
-                    }
-                    when (ident.type) {
-                        IdentifierType.Val -> {
-
-                        }
-                        IdentifierType.Var -> {
-
-                        }
-                        IdentifierType.Fun -> {
-                            Call()
-
-                        }
-                    }
-                }
-                in ops -> {}
-                else -> { throw Exception("Unexpected token while evaluating expression: $token")}
-            }
-            expr.add(iter.next())
-            last = token
-            token = iter.peek()
-            when (last.tokenType) {
-                TBD -> {}
-                in ops -> {
-                    if (token.tokenType != identifier) {
-                        throw Exception("Identifier expected, but $token found")
-                    }
-                }
-                identifier -> {
-
-                }
-            }
-        }
-
-        if (expectedParentheses > 0) {
-            throw Exception("Closing parenthesis missing while parsing expression")
-        } else
-        if (expectedParentheses < 0) {
-            throw Exception("Opening parenthesis missing while parsing expression")
-        }
-
-        val rpnExpr = shuntYard(expr) //http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm
-        /*val mainIter = iter
-        iter = rpnExpr.toRandomAccessIterator()
-
-        /*var save = iter.save()
-        var f1 = Factor()
-        var op = BinOp()
-
-        optional {
-            trySeveral {
-                binOp
-                Factor
-            }
-        }
-
-
-        var first = iter.next()
-        var second = iter.peek()
-        when () {
-
-        }*/
-        token = iter.peek()
-
-        when (token.tokenType) {
-            intValue, boolValue, floatValue -> return Value()
-            identifier -> { //check call or var
-                var ident = getRelevantIdentifier(token.text)
-                when (ident.type) {
-                    IdentifierType.Var -> {return Variable()}
-                    IdentifierType.Fun -> {return Call()}
-                }
-            }
-            plusOP, minusOp, multOp, divOp -> {return }
-            equal, less, greater, notEqual, lequal, gequal -> {return }
-            else -> throw Exception("Malformed expression: got $token")
-        }
-        iter = mainIter
-
-
-        */
-
-        return ASTNode() as Expr
-    }
-
-    /*fun toRPNnodes(): Expr {
-
-        fun Eparser{
-            var operators: Stack of Operator : = empty
-            var operands: Stack of Tree : = empty
-            push(operators, sentinel)
-            E(operators, operands)
-            expect(end)
-            return top(operands)
-        }
-
-        fun E( operators, operands ) {
-            P(operators, operands)
-            while next is a binary operator
-            pushOperator(binary(next), operators, operands)
-            consume
-            P(operators, operands)
-            while top(operators) not = sentinel
-                    popOperator(operators, operands)
-        }
-
-        fun P( operators, operands ) {
-            if next is a v
-                    push(operands, mkLeaf(v))
-            consume
-            else if next = "("
-            consume
-            push(operators, sentinel)
-            E(operators, operands)
-            expect(")")
-            pop(operators)
-            else if next is a unary operator
-            pushOperator(unary(next), operators, operands)
-            consume
-            P(operators, operands)
-            else
-            error
-        }
-
-        fun popOperator( operators, operands ) {
-            if top(operators) is binary
-            const t1 : = pop(operands)
-            const t0 : = pop(operands)
-            push(operands, mkNode(pop(operators), t0, t1))
-            else
-            push(operands, mkNode(pop(operators), pop(operands)))
-        }
-
-        fun pushOperator( op, operators, operands ) {
-            while top(operators) > op
-            popOperator(operators, operands)
-            push(op, operators)
-        }
-
-        return Expr()
-    }*/
-
-
-    /*fun getBinOp(): Expr {
-        var f1 = Factor()
-        var token = iter.next()
-        var f2 = Factor() // getExpr()
-        when (token.tokenType) {
-            plusOP -> {return Sum}
-            minusOp -> {}
-            multOp -> {}
-            divOp-> {}
-            else -> {throw Exception("Could not find binOp, found <$token>")}
-        }
-
-    }*/
 
     open inner class Expr: ASTNode()
-    inner class Neg: Expr() {lateinit var expr: Expr}
-    inner class Sum: Expr() {lateinit var left: Expr; lateinit var right: Expr}
-    inner class Mult: Expr() {lateinit var left: Expr; lateinit var right: Expr}
-    inner class Div: Expr() {lateinit var left: Expr; lateinit var right: Expr}
-    inner class Comp: Expr() {lateinit var left: Expr; lateinit var right: Expr}
+    inner class UnOp(var op: TokenTypeEnum, var right: Expr): Expr()
+    inner class BinOp(var left: Expr, var op: TokenTypeEnum, var right: Expr): Expr()
     open inner class Value(val type: ValType): Expr()
-    inner class Variable(type: ValType): Value(type)
+    inner class VarRef(type: ValType, id: Identifier): Value(type)
     inner class Constant(type: ValType, value: Any): Value(type)
 
     //inner class Term(val left: Factor)

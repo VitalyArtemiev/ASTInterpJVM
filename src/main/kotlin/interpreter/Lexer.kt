@@ -35,8 +35,6 @@ val addOps = setOf (plusOP, minusOp, orOP)
 val multOps = setOf (multOp, divOp, andOp)
 val relOps = setOf (equal, less, greater, notEqual, lequal, gequal)
 
-
-
 public data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
     val isTBD = {
         print("WTF TBD $this")

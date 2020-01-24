@@ -1,47 +1,58 @@
 package interpreter
 
+import interpreter.TokenTypeEnum.*
+import interpreter.AST.*
+import java.lang.Exception
+
 class Variable (val Name: String, var value: Int)
 
-typealias ASTNode = AST.ASTNode
+unaryMinusOp,
+notOp, andOp, orOP, xorOp,
+identifier, intValue, floatValue, boolValue,
 
 class Runner {
     lateinit var varTable: Array<Variable>
+
+    val callStack = ArrayList<FunDecl>
 
     fun run(tree: AST) {
 
 
     }
 
-    fun executeNode(node: ASTNode) {
+    fun evalExpr(node: Expr): Any {
         when (node) {
-           /* is binOp -> {
-                var leftVal: Number
-                var rightVal: Number
+            is UnOp -> {}
+            is BinOp -> {
+                var left = evalExpr(node.left)
+                var right = evalExpr(node.right)
 
-                var left = node.arg1
-                if (left is value) {
-                    leftVal = left.value
+                var result = when (node.op) {
+                    plusOP -> {left + right}
+                    minusOp -> {left - right}
+                    divOp -> {left / right}
+                    multOp -> {left * right}
+                    powOp -> {left pow right}
+                    andOp -> {left and right}
+                    orOP -> {left or right}
+                    xorOp -> {left xor right}
+                    else -> {throw Exception("Impossibru")}
                 }
-                else {
-                    leftVal = evalExpr(left) //obv wrong because may be variable
-                }
+            }
+            is VarRef -> {return varTable[node.]}
+            is Constant -> {}
+            is Call -> {}
+        }
+    }
 
-                var right = node.arg2
-                if (right is value) {
-                    rightVal = right.value
-                }
-                else {
-                    rightVal = evalExpr(right)
-                }
+    enum class erType {fail, int, float, bool, none}
+    class ExecutionResult(val type: erType, val result: Any?)
 
-                when (node.op) {
-                    eBinOp.bMinus -> {
-                        var result = leftVal as Int - rightVal as Int}
-                    eBinOp.bPlus -> TODO()
-                    eBinOp.multiply -> TODO()
-                    eBinOp.divide -> TODO()
-                }
-            }*/
+    fun executeNode(node: ASTNode): ExecutionResult {
+        when (node) {
+            is Expr  -> { val result = evalExpr(node)
+                when (result is )
+            }
         }
     }
 
