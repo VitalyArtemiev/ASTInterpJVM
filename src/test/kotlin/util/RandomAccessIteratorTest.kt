@@ -1,10 +1,10 @@
 package util
 
-import kotlin.test.Test
+//import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class RandomAccessIteratorTest {
-    @Test
+  //  @Test
     fun testRAI() {
         val al = ArrayList<Int>()
         al.add(1)

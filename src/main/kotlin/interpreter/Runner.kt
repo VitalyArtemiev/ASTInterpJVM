@@ -36,7 +36,7 @@ class Runner(env: Environment) {
                 var left = evalExpr(node.left)
                 var right = evalExpr(node.right)
 
-                var result = when (node.op) {
+                val result = when (node.op) {
                     plusOP -> {left + right}
                     minusOp -> {left - right}
                     divOp -> {left / right}
@@ -47,12 +47,12 @@ class Runner(env: Environment) {
                     orOP -> {left or right}
                     xorOp -> {left xor right}
 
-                    equal -> {left == right}
-                    less -> {left < right}
-                    greater -> {left > right}
-                    notEqual -> {left != right}
-                    lequal -> {left <= right}
-                    gequal -> {left >= right}
+                    equal -> {left as Comparable<Any> == right} //todo: check if this comparable trick works
+                    less -> {left as Comparable<Any> < right as Comparable<Any>}
+                    greater -> {left as Comparable<Any> > right}
+                    notEqual -> {left as Comparable<Any> != right}
+                    lequal -> {left as Comparable<Any> <= right}
+                    gequal -> {left as Comparable<Any> >= right}
                     else -> {throw Exception("Expression evaluation encountered unsupported operator: $node")}
                 }
 

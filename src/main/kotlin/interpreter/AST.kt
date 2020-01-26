@@ -142,7 +142,7 @@ class AST(tokens: ArrayList<Token>) {
     //data class Scope(val order: Int, Val index: Int = )
     enum class IdentifierType { Const, Var, Fun }
 
-    val identifiers = ArrayList<Identifier>(8)
+    val identifiers: ArrayList<Identifier> = ArrayList()
     var maxConstId = 0
     var maxVarId = 0
     var maxFunId = 0
@@ -165,8 +165,14 @@ class AST(tokens: ArrayList<Token>) {
         lateinit var valType: ValType
 
         init {
+           // identifiers = ArrayList()
+            if (identifiers == null) {
+                println("wat")
+            }
             if (decl) {
-                if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
+                if (identifiers.find {
+                        it.name == name && it.scopeIndex == scopeIndex
+                    } == null) {
                     identifiers.add(this)
                 } else {
                     throw Exception("Identifier <$name> already exists")

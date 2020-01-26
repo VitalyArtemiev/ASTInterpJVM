@@ -126,8 +126,13 @@ infix fun Any.xor(other: Any): Boolean {
     return this as Boolean xor other as Boolean
 }
 
-infix fun Any.equals(other: Any): Boolean {
-    return this === other 
+/*infix fun Any.equal(other: Any): Boolean {
+    return this === other
 }
 
-
+less
+greater
+notEqual
+lequal
+gequal
+*/

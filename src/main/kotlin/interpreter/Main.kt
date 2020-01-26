@@ -32,7 +32,7 @@ fun main(args: Array<String>) {
         defaultNonTerminals
     }
 
-    var path = "sourceExample"
+    var path = "source.tl"
 
     val l = Lexer(terminalsText)
 
@@ -45,4 +45,39 @@ fun main(args: Array<String>) {
     val r = Runner(env)
 
     r.run()
+
+    val A = a()
+    print(A.identifiers)
 }
+
+class a {
+    val identifiers: ArrayList<Identifier> = ArrayList()
+
+    init {
+        val i = Identifier("a", true)
+    }
+
+    open class b()
+
+    inner class Identifier(val name: String, decl: Boolean): b() {
+        init {
+            if (identifiers == null) {
+                print("wat")
+            }
+            if (decl) {
+                if (identifiers.find {
+                        it.name == name
+                    } == null) {
+                    identifiers.add(this)
+                } else {
+                    throw Exception("Identifier <$name> already exists")
+                }
+            } else {
+                if (identifiers.find { it.name == name } == null) {
+                    throw Exception("Identifier <$name> not found")
+                }
+            }
+        }
+    }
+}
+

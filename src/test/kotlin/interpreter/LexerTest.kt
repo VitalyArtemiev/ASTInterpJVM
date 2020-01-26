@@ -1,10 +1,10 @@
 package interpreter
 
-import kotlin.test.Test
+//import kotlin.TEs
 import kotlin.test.assertEquals
 
 class LexerTest {
-    @Test
+   // @Test
     fun testLexer() {
         var l = Lexer("")
 
