@@ -2,27 +2,36 @@ package interpreter
 
 import interpreter.TokenTypeEnum.*
 import interpreter.AST.*
-import java.lang.Exception
+import util.Logger
+import kotlin.Exception
 
-class Variable (val Name: String, var value: Int)
+class Variable (val Name: String, val type: AST.ValType, var value: Any?) //member of varTable
 
-unaryMinusOp,
-notOp, andOp, orOP, xorOp,
-identifier, intValue, floatValue, boolValue,
+class Runner(env: Environment) {
+    val logger = Logger("Runner")
 
-class Runner {
-    lateinit var varTable: Array<Variable>
+    val varTable: Array<Variable> = env.variables
+    val constTable: Array<ConstDecl> = env.constants
 
-    val callStack = ArrayList<FunDecl>
+    val callStack = ArrayList<FunDecl>()
 
-    fun run(tree: AST) {
+    fun run() {
 
 
     }
 
     fun evalExpr(node: Expr): Any {
         when (node) {
-            is UnOp -> {}
+            is UnOp -> {
+                val right = evalExpr(node.right)
+                val result = when (node.op) {
+                    unaryMinusOp -> {- right}
+                    notOp -> {! right}
+                    else -> {throw Exception("Expression evaluation encountered unsupported operator: $node")}
+                }
+
+                return result
+            }
             is BinOp -> {
                 var left = evalExpr(node.left)
                 var right = evalExpr(node.right)
@@ -33,30 +42,93 @@ class Runner {
                     divOp -> {left / right}
                     multOp -> {left * right}
                     powOp -> {left pow right}
+
                     andOp -> {left and right}
                     orOP -> {left or right}
                     xorOp -> {left xor right}
-                    else -> {throw Exception("Impossibru")}
+
+                    equal -> {left == right}
+                    less -> {left < right}
+                    greater -> {left > right}
+                    notEqual -> {left != right}
+                    lequal -> {left <= right}
+                    gequal -> {left >= right}
+                    else -> {throw Exception("Expression evaluation encountered unsupported operator: $node")}
                 }
+
+                return result
             }
-            is VarRef -> {return varTable[node.]}
-            is Constant -> {}
-            is Call -> {}
+            is VarRef -> {
+                return varTable[node.varId].value ?: throw Exception("Referencing uninitialised variable")
+            }
+            is ConstRef -> {
+                return constTable[node.constId].value
+            }
+            is ConstVal -> {
+                return node.value
+            }
+            is Call -> {
+                return executeCall(node).value ?: throw Exception("Call execution ($node) returned no value")
+            }
+            else -> {
+                throw Exception("Expression evaluation encountered unsupported node: $node")
+            }
         }
     }
 
-    enum class erType {fail, int, float, bool, none}
-    class ExecutionResult(val type: erType, val result: Any?)
+    class ExecutionResult(val type: ValType, val value: Any?)
 
     fun executeNode(node: ASTNode): ExecutionResult {
         when (node) {
-            is Expr  -> { val result = evalExpr(node)
-                when (result is )
+            is Prog -> {
+                for (n in node.nodes) {
+                    executeNode(n)
+                }
+                return ExecutionResult(ValType.none, null)
+            }
+            is Block -> {
+                for (n in node.nodes) {
+                    executeNode(n)
+                }
+                return ExecutionResult(ValType.none, null)
+            }
+
+            is Expr  -> {
+                val result = evalExpr(node)
+                val type = when (result) {
+                    is Int -> ValType.int
+                    is Float -> ValType.float
+                    is Boolean -> ValType.bool
+                    else -> {
+                        logger.e("Execution expected Expr, received $result")
+                        ValType.none
+                    }
+                }
+                return ExecutionResult(type, result)
+            }
+            is Call  -> {
+                return executeCall(node)
+            }
+            else -> {
+                throw Exception("Execution encountered unsupported node: $node")
             }
         }
+
+
     }
 
-    fun evalExpr(node: ASTNode): Number {
-        return 0;
+    fun executeCall(node: Call): ExecutionResult {
+        val signature = node.callee.params
+        for ((i, p) in node.params.withIndex()) {
+            val result = executeNode(p) //get param values
+            if (signature[i].varType != result.type) { //check param types
+                throw Exception("Function parameter type mismatch: expected ${signature[i].varType}, " +
+                        " got ${result}")
+            }
+
+            varTable[signature[i].identifier.refId].value = result.value //init param variables
+        }
+
+        return executeNode(node.callee.body) //execute function body block
     }
 }

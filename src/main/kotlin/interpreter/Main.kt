@@ -40,9 +40,9 @@ fun main(args: Array<String>) {
 
     val p = Parser(/*nonTerminalsText*/)
 
-    var tree = p.parse(tokens)
+    var env = p.parse(tokens)
 
-    //val r = Runner()
+    val r = Runner(env)
 
-    //r.run(tree)
+    r.run()
 }

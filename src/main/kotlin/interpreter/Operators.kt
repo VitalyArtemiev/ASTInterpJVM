@@ -23,6 +23,14 @@ operator fun Any.plus(other: Any): Number {
     }
 }
 
+operator fun Any.unaryMinus(): Number {
+    return when (this) {
+        is Int -> - this
+        is Float -> - this
+        else -> throw Exception("Expected number, got ${this.javaClass}")
+    }
+}
+
 operator fun Any.minus(other: Any): Number {
     return when (this) {
         is Int -> {
@@ -103,6 +111,10 @@ infix fun Any.pow(other: Any): Number {
     }
 }
 
+operator fun Any.not(): Boolean {
+    return ! (this as Boolean)
+}
+
 infix fun Any.or(other: Any): Boolean {
     return this as Boolean || other as Boolean
 }
@@ -113,4 +125,9 @@ infix fun Any.and(other: Any): Boolean {
 infix fun Any.xor(other: Any): Boolean {
     return this as Boolean xor other as Boolean
 }
+
+infix fun Any.equals(other: Any): Boolean {
+    return this === other 
+}
+
 

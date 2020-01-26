@@ -9,7 +9,7 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     startBlock("^\\{"), endBlock("^\\}"), openParenthesis("^\\("), closeParenthesis("^\\)"),
     colon("^:"), comma("^,"),
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
-    varDecl("^var"), funDecl("^fun"),
+    constDecl("^const"), varDecl("^var"), funDecl("^fun"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"), retStmt("^return"),
     printVarTable("^_PRINTVARTABLE"),
     type("^(int|float|bool)"),
