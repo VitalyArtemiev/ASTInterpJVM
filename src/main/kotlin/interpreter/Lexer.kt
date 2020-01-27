@@ -14,7 +14,7 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     printVarTable("^_PRINTVARTABLE"),
     type("^(int|float|bool)"),
     assignOp("^:="), memberOp("^\\."),
-    plusOP("^\\+"), minusOp("^-"), unaryMinusOp("^-"),
+    plusOP("^\\+"), minusOp("^-"), unaryPlusOp("^+"), unaryMinusOp("^-"),
     multOp("^\\*"), divOp("^/"),
     powOp("^\\^"),
     orOP("^or"), notOp("^not"),
@@ -28,9 +28,9 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
 val boolOps = setOf (notOp, andOp, orOP, xorOp)
 val numOps = setOf (plusOP, minusOp, divOp, multOp, powOp)
 
-val ops = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
-val unaryOps = setOf (unaryMinusOp, notOp)
-val laOps = setOf (unaryMinusOp, plusOP, minusOp, divOp, multOp)
+val ops = setOf (unaryPlusOp, unaryMinusOp, plusOP, minusOp, divOp, multOp, powOp)
+val unaryOps = setOf (unaryPlusOp, unaryMinusOp, notOp)
+val laOps = setOf (unaryPlusOp, unaryMinusOp, plusOP, minusOp, divOp, multOp)
 val addOps = setOf (plusOP, minusOp, orOP)
 val multOps = setOf (multOp, divOp, andOp)
 val relOps = setOf (equal, less, greater, notEqual, lequal, gequal)

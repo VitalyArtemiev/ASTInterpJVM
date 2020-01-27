@@ -4,7 +4,7 @@ class RandomAccessIterator<T> internal constructor( delegate: ArrayList<T>) : Mu
     private var cur = 0
     private var saved = 0
     fun cur(): T = this[cur-1]
-    fun next(): T = this[cur++]
+    fun next(): T {val result = this[cur++]; println(result); return result}
 
     //fun prev(): T = this[cur--]
     fun peek(): T = this[cur]

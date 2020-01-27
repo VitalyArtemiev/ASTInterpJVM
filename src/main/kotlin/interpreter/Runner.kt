@@ -121,8 +121,8 @@ class Runner(env: Environment) {
         val signature = node.callee.params
         for ((i, p) in node.params.withIndex()) {
             val result = executeNode(p) //get param values
-            if (signature[i].varType != result.type) { //check param types
-                throw Exception("Function parameter type mismatch: expected ${signature[i].varType}, " +
+            if (signature[i].type != result.type) { //check param types
+                throw Exception("Function parameter type mismatch: expected ${signature[i].type}, " +
                         " got ${result}")
             }
 

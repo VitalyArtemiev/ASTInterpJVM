@@ -10,11 +10,11 @@ a :=- 4
 
 var f: float = 5.1
 
-f= -4.2345
+f:= -4.2345
 
 fun myFunction(b: int): int {
     var a: int
-    a = 1 * 4 - 5 * (b +1)
+    a := 1 * 4 - 5 * (b +1)
 }
 
 {

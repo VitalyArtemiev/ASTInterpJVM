@@ -8,17 +8,24 @@ import util.toRandomAccessIterator
 class AST(tokens: ArrayList<Token>) {
     var iter = tokens.toRandomAccessIterator()
 
-    var root = Prog()
+    enum class IdentifierType { Const, Var, Fun }
+
+    val identifiers: ArrayList<Identifier> = ArrayList()
+    var maxConstId = 0
+    var maxVarId = 0
+    var maxFunId = 0
 
     val functions = ArrayList<FunDecl>() //to keep track of attached blocks
     val constants = ArrayList<ConstDecl>()
-    val variables = extractVariables()
+    val variables = ArrayList<VarDecl>()
 
     //lateinit var crawler: TreeCrawler
     var curScopeLevel = 0
     var curScopeIndex = 0
     var maxScopeIndex = 0
     val scopes = Stack<Int>()
+
+    var root = Prog()
 
     open class ASTNode(val lineIndex: Int = 0, val text: String = "")
 
@@ -35,11 +42,10 @@ class AST(tokens: ArrayList<Token>) {
 
         init {
             var token = iter.peek()
-            var i = 0
             while (token.tokenType != EOF) {
                 when (token.tokenType) {
-                    varDecl, funDecl -> nodes[i++] = getDecl() //todo: add line information
-                    identifier, startBlock, ifStmt, whileStmt, retStmt -> nodes[i++] = getStmt()
+                    varDecl, funDecl -> nodes.add(getDecl()) //todo: add line information
+                    identifier, startBlock, ifStmt, whileStmt, retStmt -> nodes.add(getStmt())
                     else -> {
                         println("decl or stmt expected but $token found")
                         iter.next()
@@ -52,9 +58,9 @@ class AST(tokens: ArrayList<Token>) {
 
     open inner class Decl : ASTNode()
 
-    inner class ConstDecl(val identifier: Identifier, val varType: ValType, var value: Any): Decl() //TODO()
+    inner class ConstDecl(val identifier: Identifier, val type: ValType, var value: Any): Decl()
 
-    inner class VarDecl(val identifier: Identifier, val varType: ValType, var expr: Expr?) : Decl()
+    inner class VarDecl(val identifier: Identifier, val type: ValType, var expr: Expr?) : Decl()
 
     inner class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retType: ValType,
                         var body: Block) : Decl() {
@@ -85,6 +91,7 @@ class AST(tokens: ArrayList<Token>) {
                 val id = Identifier(Var, decl = true)
                 val type = getType()
                 val expr = if (iter.peek().tokenType == equal) {
+                    iter.next()
                     getExpr()
                 } else null
                 VarDecl(id, type, expr)
@@ -140,17 +147,11 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     //data class Scope(val order: Int, Val index: Int = )
-    enum class IdentifierType { Const, Var, Fun }
-
-    val identifiers: ArrayList<Identifier> = ArrayList()
-    var maxConstId = 0
-    var maxVarId = 0
-    var maxFunId = 0
 
     inner class Identifier(
-        val type: IdentifierType, val decl: Boolean = false,
+        val type: IdentifierType, decl: Boolean = false,
         val name: String = iter.next().text, //name initialized here cuz i needed to pass it in manually in Call()
-        val actualScopeLevel: Int = -1, val actualScopeIndex: Int = -1
+        actualScopeLevel: Int = -1, actualScopeIndex: Int = -1
     ) : ASTNode() {
         var scopeLevel: Int = when(actualScopeLevel){
             -1 -> curScopeLevel
@@ -165,35 +166,30 @@ class AST(tokens: ArrayList<Token>) {
         lateinit var valType: ValType
 
         init {
-           // identifiers = ArrayList()
-            if (identifiers == null) {
-                println("wat")
-            }
             if (decl) {
-                if (identifiers.find {
-                        it.name == name && it.scopeIndex == scopeIndex
-                    } == null) {
+                if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(this)
                 } else {
                     throw Exception("Identifier <$name> already exists")
                 }
-            } else {
-                if (identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) } == null) {
-                    throw Exception("Identifier <$name> not found")
-                }
-            }
 
-            refId = when (type) {
-                Const -> maxConstId ++
-                Var -> maxVarId ++
-                Fun -> maxFunId ++
+                refId = when (type) {
+                    Const -> maxConstId ++
+                    Var -> maxVarId ++
+                    Fun -> maxFunId ++
+                }
+            } else {
+                val id= identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) }
+                    ?: throw Exception("Identifier <$name> not found")
+                refId = id.refId //todo: possible tomfoolery when finding declared variable
             }
         }
+        override fun toString(): String = "$type #$refId $name: valType si: $scopeIndex sl: $scopeLevel"
     }
 
-    fun extractVariables(): Array<Variable> {
+    /*fun extractVariables(): Array<Variable> {
         return identifiers.filter { it.type == Var }.map { Variable(it.name, it.valType, null) }.toTypedArray()
-    }
+    }*/
 
     enum class ValType { none, bool, int, float }
 
@@ -269,16 +265,15 @@ class AST(tokens: ArrayList<Token>) {
             scopes.push(curScopeIndex)
 
             curScopeLevel ++
-            scopeIndex = maxScopeIndex ++
+            scopeIndex = ++ maxScopeIndex
             curScopeIndex = scopeIndex
 
-            var i = 0
             do {
                 var token = iter.peek()
 
                 when (token.tokenType) {
-                    varDecl, funDecl -> nodes[i++] = getDecl() //todo: add line information
-                    identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes[i++] = getStmt()
+                    varDecl, funDecl -> nodes.add(getDecl()) //todo: add line information
+                    identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes.add(getStmt())
                     else -> { //EOF handled here
                         throw Exception("decl or stmt expected but $token found")
                         //iter.next()
@@ -312,16 +307,25 @@ class AST(tokens: ArrayList<Token>) {
         }
     }
 
-    inner class Assign(val identifier: Identifier = Identifier(Var),
-                       val expr: Expr = getExpr()): Stmt()
-        fun getRelevantIdentifier(name: String): Identifier {
-        val candidates = identifiers.filter { it.name == name &&
-                (it.scopeIndex == curScopeIndex || it.scopeLevel < curScopeLevel) }
+    inner class Assign(): Stmt() {
+        val identifier: Identifier
+        var expr: Expr
+
+        init {
+            identifier = Identifier(Var)
+            expect(assignOp)
+            expr =  getExpr()
+        }
+    }
+
+    fun getRelevantIdentifier(name: String): Identifier {
+        val candidates = identifiers.filter {
+            it.name == name && (it.scopeIndex == curScopeIndex || it.scopeLevel < curScopeLevel)
+        }
         if (candidates.count() == 0) {
             throw Exception("Identifier <$name> not found")
         }
-
-        return candidates.maxBy{ it.scopeLevel }!! //literally can't be null
+        return candidates.maxBy { it.scopeLevel }!! //literally can't be null
     }
 
     fun getExpr(): Expr {
@@ -335,10 +339,10 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     fun simpExpr(): Expr {
-        val unOp = if (iter.peek().tokenType == unaryMinusOp) {
-            iter.next().tokenType
-        } else {
-            null
+        val unOp = when (iter.peek().tokenType ) {
+            plusOP -> {iter.next(); unaryPlusOp}
+            minusOp -> {iter.next(); unaryPlusOp}
+            else -> {null}
         }
 
         var left = getTerm()
@@ -384,10 +388,10 @@ class AST(tokens: ArrayList<Token>) {
                 val id = getRelevantIdentifier(token.text)
                 when (id.type) {
                     Const -> {
-                        return ConstRef(id.refId, id.valType)
+                        return ConstRef(id.refId, constants[id.refId].type)
                     }
                     Var -> {
-                        return VarRef(id.refId, id.valType)
+                        return VarRef(id.refId, variables[id.refId].type)
                     }
                     Fun -> {
                         return Call()
