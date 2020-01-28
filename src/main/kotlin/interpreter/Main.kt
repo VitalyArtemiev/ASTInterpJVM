@@ -39,6 +39,11 @@ fun main(args: Array<String>) {
     val l = Lexer(terminalsText)
 
     var tokens = l.lex(path)
+    if (l.errors.isNotEmpty()) {
+        println("Lexical errors: \n" + l.errors.toString())
+    } else {
+        print("Lexer finished with no errors")
+    }
 
     val p = Parser(/*nonTerminalsText*/)
 
@@ -51,6 +56,7 @@ fun main(args: Array<String>) {
     /*val A = a(tokens)
     print(A.identifiers)*/
 }
+/*
 
 class a(tokens: ArrayList<Token>) {
     var iter = tokens.toRandomAccessIterator()
@@ -472,3 +478,4 @@ class a(tokens: ArrayList<Token>) {
     inner class VarRef(val varId: Int, type: ValType): Value(type)
 }
 
+*/

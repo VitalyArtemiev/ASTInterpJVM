@@ -12,7 +12,7 @@ class Parser() {
     fun parse(tokens: ArrayList<Token>): Environment {
         tree = AST(tokens)
         val constants = tree.constants.toTypedArray()
-        val variables = tree.variables
+        val variables = tree.extractVariables()
         val functions = tree.functions.toTypedArray()
         return Environment(tree.root, constants, variables, functions)
 

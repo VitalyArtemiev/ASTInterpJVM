@@ -25,6 +25,11 @@ class AST(tokens: ArrayList<Token>) {
     var maxScopeIndex = 0
     val scopes = Stack<Int>()
 
+    init {
+        getDefaultFunctions()
+        getDefaultConstants()
+    }
+
     var root = Prog()
 
     open class ASTNode(val lineIndex: Int = 0, val text: String = "")
@@ -58,9 +63,17 @@ class AST(tokens: ArrayList<Token>) {
 
     open inner class Decl : ASTNode()
 
-    inner class ConstDecl(val identifier: Identifier, val type: ValType, var value: Any): Decl()
+    inner class ConstDecl(val identifier: Identifier, val type: ValType, var value: Any): Decl() {
+        init { //register variable
+            constants.add(this)
+        }
+    }
 
-    inner class VarDecl(val identifier: Identifier, val type: ValType, var expr: Expr?) : Decl()
+    inner class VarDecl(val identifier: Identifier, val type: ValType, var expr: Expr?) : Decl() {
+        init { //register variable
+            variables.add(this)
+        }
+    }
 
     inner class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retType: ValType,
                         var body: Block) : Decl() {
@@ -146,8 +159,6 @@ class AST(tokens: ArrayList<Token>) {
         return VarDecl(id, type, expr)
     }
 
-    //data class Scope(val order: Int, Val index: Int = )
-
     inner class Identifier(
         val type: IdentifierType, decl: Boolean = false,
         val name: String = iter.next().text, //name initialized here cuz i needed to pass it in manually in Call()
@@ -187,9 +198,9 @@ class AST(tokens: ArrayList<Token>) {
         override fun toString(): String = "$type #$refId $name: valType si: $scopeIndex sl: $scopeLevel"
     }
 
-    /*fun extractVariables(): Array<Variable> {
-        return identifiers.filter { it.type == Var }.map { Variable(it.name, it.valType, null) }.toTypedArray()
-    }*/
+    fun extractVariables(): Array<Variable> {
+        return variables.map { Variable(it.identifier.name, it.type, null) }.toTypedArray()
+    }
 
     enum class ValType { none, bool, int, float }
 
@@ -264,14 +275,15 @@ class AST(tokens: ArrayList<Token>) {
 
             scopes.push(curScopeIndex)
 
-            curScopeLevel ++
-            scopeIndex = ++ maxScopeIndex
+            curScopeLevel ++ //one level down
+            scopeIndex = ++ maxScopeIndex //get new index
             curScopeIndex = scopeIndex
 
-            do {
-                var token = iter.peek()
+            loop@ do {
+                val token = iter.peek()
 
                 when (token.tokenType) {
+                    endBlock -> {iter.next(); break@loop}
                     varDecl, funDecl -> nodes.add(getDecl()) //todo: add line information
                     identifier, startBlock, ifStmt, whileStmt, retStmt ->  nodes.add(getStmt())
                     else -> { //EOF handled here
@@ -280,7 +292,7 @@ class AST(tokens: ArrayList<Token>) {
                     }
                 }
 
-            } while (token.tokenType != endBlock)
+            } while (true)
             curScopeLevel --
             curScopeIndex = scopes.pop()
         }

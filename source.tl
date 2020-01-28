@@ -30,11 +30,11 @@ fun myFunction(b: int): int {
         b :=a +(a- b)
     }
 
-    f = f * 3 / 2
+    f := f * 3 / 2
 
     {{}}
 
-        $&&$&$&
+
 
         { { } }
         {  {}}

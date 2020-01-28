@@ -14,7 +14,7 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     printVarTable("^_PRINTVARTABLE"),
     type("^(int|float|bool)"),
     assignOp("^:="), memberOp("^\\."),
-    plusOP("^\\+"), minusOp("^-"), unaryPlusOp("^+"), unaryMinusOp("^-"),
+    plusOP("^\\+"), minusOp("^-"), unaryPlusOp("(?!x)x"), unaryMinusOp("(?!x)x"),
     multOp("^\\*"), divOp("^/"),
     powOp("^\\^"),
     orOP("^or"), notOp("^not"),
@@ -106,6 +106,7 @@ class Lexer {
 
                 if (tokenText == "") { //doesnt match anything
                     errors.add(Pair(lineIndex, str))
+                    tokenText = str
                     break
                 }
             }
