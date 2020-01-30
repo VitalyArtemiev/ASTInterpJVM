@@ -5,19 +5,25 @@ import interpreter.AST.*
 import util.Logger
 import kotlin.Exception
 
-class Variable (val Name: String, val type: AST.ValType, var value: Any?) //member of varTable
+class Variable (val name: String, val type: ValType, var value: Any?) { //member of varTable
+    override fun toString(): String {
+        return "$name: $type = $value"
+    }
+}
 
 class Runner(env: Environment) {
     val logger = Logger("Runner")
 
     val varTable: Array<Variable> = env.variables
     val constTable: Array<ConstDecl> = env.constants
+    //val functions = env.functions
 
     val callStack = ArrayList<FunDecl>()
 
+    val root = env.root
+
     fun run() {
-
-
+        executeNode(root)
     }
 
     fun evalExpr(node: Expr): Any {
@@ -130,5 +136,11 @@ class Runner(env: Environment) {
         }
 
         return executeNode(node.callee.body) //execute function body block
+    }
+
+    fun printVarTable() {
+        for (v in varTable) {
+            println(v)
+        }
     }
 }

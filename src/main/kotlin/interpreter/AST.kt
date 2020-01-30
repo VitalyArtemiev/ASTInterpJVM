@@ -26,6 +26,7 @@ class AST(tokens: ArrayList<Token>) {
     val scopes = Stack<Int>()
 
     init {
+        registerIdentifiers()
         getDefaultFunctions()
         getDefaultConstants()
     }
@@ -80,6 +81,10 @@ class AST(tokens: ArrayList<Token>) {
         init { //register function
             functions.add(this)
         }
+    }
+
+    inner class CompiledFun(): FunDecl() {
+
     }
 
     fun getDecl(): Decl {
@@ -303,7 +308,7 @@ class AST(tokens: ArrayList<Token>) {
         val callee: FunDecl
         val params = ArrayList<Expr>(1)
         init {
-            var name = iter.cur().text
+            val name = iter.cur().text
             try {
                 val id = Identifier(Fun, name = name)
                 callee = functions[id.refId]
@@ -312,7 +317,7 @@ class AST(tokens: ArrayList<Token>) {
             }
             expect(openParenthesis)
             while (iter.peek().tokenType != closeParenthesis) {
-                var node = getExpr()
+                val node = getExpr()
                 params.add(node)
             }
             iter.next()

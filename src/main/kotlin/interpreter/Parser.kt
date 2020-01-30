@@ -15,7 +15,6 @@ class Parser() {
         val variables = tree.extractVariables()
         val functions = tree.functions.toTypedArray()
         return Environment(tree.root, constants, variables, functions)
-
     }
 }
 
