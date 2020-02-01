@@ -25,11 +25,11 @@ class AST(tokens: ArrayList<Token>) {
     var maxScopeIndex = 0
     val scopes = Stack<Int>()
 
-    init {
+    /*init {
         registerIdentifiers()
         getDefaultFunctions()
         getDefaultConstants()
-    }
+    }*/
 
     var root = Prog()
 
@@ -77,14 +77,10 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     inner class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retType: ValType,
-                        var body: Block) : Decl() {
+                        var body: BaseBlock) : Decl() {
         init { //register function
             functions.add(this)
         }
-    }
-
-    inner class CompiledFun(): FunDecl() {
-
     }
 
     fun getDecl(): Decl {
@@ -272,7 +268,10 @@ class AST(tokens: ArrayList<Token>) {
         }
     }
 
-    inner class Block(): Stmt() {
+    open inner class BaseBlock(): Stmt()
+    inner class PrecompiledBlock(val f: (params: Params?) -> Any?): BaseBlock()
+
+    inner class Block(): BaseBlock() {
         val scopeIndex: Int
         val nodes = ArrayList<ASTNode>(16)
         init {

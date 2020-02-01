@@ -124,18 +124,47 @@ class Runner(env: Environment) {
     }
 
     fun executeCall(node: Call): ExecutionResult {
-        val signature = node.callee.params
-        for ((i, p) in node.params.withIndex()) {
-            val result = executeNode(p) //get param values
-            if (signature[i].type != result.type) { //check param types
-                throw Exception("Function parameter type mismatch: expected ${signature[i].type}, " +
-                        " got ${result}")
+        when (node.callee.body) {
+            is Block -> {
+                val signature = node.callee.params
+                for ((i, p) in node.params.withIndex()) {
+                    val result = executeNode(p) //get param values
+                    if (signature[i].type != result.type) { //check param types
+                        throw Exception("Function parameter type mismatch: expected ${signature[i].type}, " +
+                                " got $result")
+                    }
+
+                    varTable[signature[i].identifier.refId].value = result.value //init param variables
+                }
+
+                return executeNode(node.callee.body)
+            } //execute function body block
+            is PrecompiledBlock -> {
+                val signature = node.callee.params
+                val parResults = Params(node.callee.params.size) {null}
+                for ((i, p) in node.params.withIndex()) {
+                    val result = executeNode(p) //get param values
+                    if (signature[i].type != result.type) { //check param types
+                        throw Exception("Precompiled function parameter type mismatch: expected ${signature[i].type}, " +
+                                " got $result")
+                    }
+
+                    parResults[i] = result.value //init param variables
+                }
+                val result = (node.callee.body as PrecompiledBlock).f(parResults)
+                val type: ValType = when(result) {
+                    is Int -> {ValType.int}
+                    is Float -> {ValType.float}
+                    is Boolean -> {ValType.bool}
+                    else -> {throw Exception("Unsupported return type from precompiled function: $result")}
+                }
+
+                return ExecutionResult(type, result)
             }
-
-            varTable[signature[i].identifier.refId].value = result.value //init param variables
+            else -> {
+                throw Exception("WTF") // for some reason sealed class is incompatible with inner
+            }
         }
-
-        return executeNode(node.callee.body) //execute function body block
     }
 
     fun printVarTable() {

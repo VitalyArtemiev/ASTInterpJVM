@@ -8,6 +8,19 @@ class exportFunction(name: String, type: IdentifierType, valType: ValType, value
 
 val idPi = exportIdentifier("pi", IdentifierType.Const, ValType.float, 3.1415)
 
+typealias Params = Array<Any?>
+
+val writeLn: (params: Params?) -> Unit = {
+    if (it != null) {
+        for (p in it) {
+            print(p)
+            /*when (p) {
+
+            }*/
+        }
+    }
+    println()
+}
 
 val defaultIdentifiers = arrayOf(
     exportFunction("_PRINTVARTABLE", IdentifierType.Fun)
