@@ -2,17 +2,20 @@ package interpreter
 
 import interpreter.AST.*
 
-open class exportIdentifier(val name: String, val type: IdentifierType, val valType: ValType, val value: Any?)
-class exportFunction(name: String, type: IdentifierType, valType: ValType, value: Any, val exec: Unit):
-    exportIdentifier(name, type, valType, value)
+sealed class ExportIdentifier(val name: String, val type: IdentifierType, val valType: ValType)
+class ExportFunction(name: String, val params: Signature?, retType: ValType, val body: ((Params?) -> Any?)):
+    ExportIdentifier(name, IdentifierType.Fun, retType)
+class ExportConstant(name: String, valType: ValType, val value: Any):
+    ExportIdentifier(name, IdentifierType.Const, valType)
+class ExportVariable(name: String, valType: ValType, val defaultValue: Any):
+    ExportIdentifier(name, IdentifierType.Var, valType)
 
-val idPi = exportIdentifier("pi", IdentifierType.Const, ValType.float, 3.1415)
-
+typealias Signature = Array<Pair<String, ValType>>
 typealias Params = Array<Any?>
 
-val writeLn: (params: Params?) -> Unit = {
-    if (it != null) {
-        for (p in it) {
+fun writeLn(params: Params?) {
+    if (params != null) {
+        for (p in params) {
             print(p)
             /*when (p) {
 
@@ -22,7 +25,7 @@ val writeLn: (params: Params?) -> Unit = {
     println()
 }
 
-val defaultIdentifiers = arrayOf(
-    exportFunction("_PRINTVARTABLE", IdentifierType.Fun)
-    Identifier(IdentifierType.Fun, true,  "_PRINTVARTABLE", 0, 0)
+val defaultIdentifiers: Array<ExportIdentifier> = arrayOf(
+    ExportConstant("pi", ValType.float, 3.1415),
+    ExportFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none, ::writeLn)
 )

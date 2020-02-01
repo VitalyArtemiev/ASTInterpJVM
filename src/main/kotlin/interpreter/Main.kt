@@ -51,6 +51,10 @@ fun main(args: Array<String>) {
 
     val r = Runner(env)
 
+    val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
+        ExportFunction("_PRINTVARTABLE", null, AST.ValType.none, r::printVarTable)
+    )
+
     r.run()
 
     /*val A = a(tokens)

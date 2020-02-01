@@ -167,9 +167,14 @@ class Runner(env: Environment) {
         }
     }
 
-    fun printVarTable() {
+    fun printVarTable(params: Params?) {
         for (v in varTable) {
             println(v)
         }
     }
 }
+
+/*
+val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
+    ExportFunction("_PRINTVARTABLE", null, ValType.none, Runner::printVarTable)
+)*/

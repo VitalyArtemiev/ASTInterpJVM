@@ -5,7 +5,7 @@ import interpreter.TokenTypeEnum.*
 import util.Stack
 import util.toRandomAccessIterator
 
-class AST(tokens: ArrayList<Token>) {
+class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     var iter = tokens.toRandomAccessIterator()
 
     enum class IdentifierType { Const, Var, Fun }
@@ -25,11 +25,14 @@ class AST(tokens: ArrayList<Token>) {
     var maxScopeIndex = 0
     val scopes = Stack<Int>()
 
-    /*init {
-        registerIdentifiers()
-        getDefaultFunctions()
-        getDefaultConstants()
-    }*/
+    init {
+        importIdentifiers(defaultIdentifiers)
+        if (import != null) {
+            importIdentifiers(import)
+        }
+        //getDefaultFunctions()
+        //getDefaultConstants()
+    }
 
     var root = Prog()
 
@@ -43,7 +46,7 @@ class AST(tokens: ArrayList<Token>) {
         return actual
     }
 
-    inner class Prog() : ASTNode() {
+    inner class Prog : ASTNode() {
         val nodes = ArrayList<ASTNode>(16)
 
         init {
@@ -87,7 +90,7 @@ class AST(tokens: ArrayList<Token>) {
         val token = iter.next()
         return when (token.tokenType) {
             constDecl -> {
-                val id = Identifier(Const, decl = true)
+                val id = Identifier(Const, mode = IdMode.Declare)
                 val type = getType()
                 val expr = if (iter.peek().tokenType == equal) {
                     getExpr()
@@ -102,7 +105,7 @@ class AST(tokens: ArrayList<Token>) {
                 ConstDecl(id, type, expr as Value)
             }
             varDecl -> {
-                val id = Identifier(Var, decl = true)
+                val id = Identifier(Var, mode = IdMode.Declare)
                 val type = getType()
                 val expr = if (iter.peek().tokenType == equal) {
                     iter.next()
@@ -111,7 +114,7 @@ class AST(tokens: ArrayList<Token>) {
                 VarDecl(id, type, expr)
             }
             funDecl -> {
-                val id = Identifier(Fun, decl = true)
+                val id = Identifier(Fun, mode = IdMode.Declare)
                 expect(openParenthesis)
 
                 val params = ArrayList<VarDecl>()
@@ -151,7 +154,7 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     fun getParDecl(scopeLevel: Int, scopeIndex: Int): VarDecl {
-        val id = Identifier(Var, decl = true, actualScopeLevel = scopeLevel, actualScopeIndex = scopeIndex)
+        val id = Identifier(Var, mode = IdMode.Declare, actualScopeLevel = scopeLevel, actualScopeIndex = scopeIndex)
         val type = getType()
         val expr = if (iter.peek().tokenType == equal) {
             getExpr()
@@ -160,8 +163,39 @@ class AST(tokens: ArrayList<Token>) {
         return VarDecl(id, type, expr)
     }
 
+    enum class IdMode {Declare, Import, Find}
+
+    fun importIdentifiers(ids: Array<ExportIdentifier>) {
+        for (ei in ids) {
+            when (ei) {
+                is ExportFunction -> {
+                    val id = Identifier(Fun, IdMode.Import, ei.name)
+                    val params = ArrayList<VarDecl>()
+
+                    //create own block
+                    if (ei.params != null) {
+                        for ((name, type) in ei.params) {
+                            val id = Identifier(Var, IdMode.Import, name, 1, ++maxScopeIndex) //own scope for imported fun params
+                            params.add(VarDecl(id, type, null))
+                        }
+                    }
+
+                    FunDecl(id, params.toTypedArray(), ei.valType, PrecompiledBlock(ei.body))
+                }
+                is ExportConstant -> {
+                    val id = Identifier(Const, IdMode.Import, ei.name)
+                    constants[id.refId].value = ei.value
+                }
+                is ExportVariable -> {
+                    val id = Identifier(Var, IdMode.Import, ei.name)
+                    variables[id.refId].expr = ConstVal(ei.defaultValue, ei.valType)
+                }
+            }
+        }
+    }
+
     inner class Identifier(
-        val type: IdentifierType, decl: Boolean = false,
+        val type: IdentifierType, mode: IdMode = IdMode.Find,
         val name: String = iter.next().text, //name initialized here cuz i needed to pass it in manually in Call()
         actualScopeLevel: Int = -1, actualScopeIndex: Int = -1
     ) : ASTNode() {
@@ -178,22 +212,40 @@ class AST(tokens: ArrayList<Token>) {
         lateinit var valType: ValType
 
         init {
-            if (decl) {
-                if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
-                    identifiers.add(this)
-                } else {
-                    throw Exception("Identifier <$name> already exists")
-                }
+            when (mode) {
+                IdMode.Declare -> {
+                    if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
+                        identifiers.add(this)
+                    } else {
+                        throw Exception("Identifier <$name> already exists")
+                    }
 
-                refId = when (type) {
-                    Const -> maxConstId ++
-                    Var -> maxVarId ++
-                    Fun -> maxFunId ++
+                    refId = when (type) {
+                        Const -> maxConstId ++
+                        Var -> maxVarId ++
+                        Fun -> maxFunId ++
+                    }
                 }
-            } else {
-                val id= identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) }
-                    ?: throw Exception("Identifier <$name> not found")
-                refId = id.refId //todo: possible tomfoolery when finding declared variable
+                IdMode.Find -> {
+                    val id= identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) }
+                        ?: throw Exception("Identifier <$name> not found")
+                    refId = id.refId //todo: possible tomfoolery when finding declared variable
+                }
+                IdMode.Import -> {
+                    scopeLevel = 0
+                    scopeIndex = 0
+                    if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
+                        identifiers.add(this)
+                    } else {
+                        throw Exception("Conflicting import identifiers: identifier <$name> already exists")
+                    }
+
+                    refId = when (type) {
+                        Const -> maxConstId ++
+                        Var -> maxVarId ++
+                        Fun -> maxFunId ++
+                    }
+                }
             }
         }
         override fun toString(): String = "$type #$refId $name: valType si: $scopeIndex sl: $scopeLevel"
@@ -203,7 +255,7 @@ class AST(tokens: ArrayList<Token>) {
         return variables.map { Variable(it.identifier.name, it.type, null) }.toTypedArray()
     }
 
-    enum class ValType { none, bool, int, float }
+    enum class ValType { none, any, bool, int, float }
 
     fun getType(): ValType {
         expect(colon)
@@ -269,11 +321,13 @@ class AST(tokens: ArrayList<Token>) {
     }
 
     open inner class BaseBlock(): Stmt()
-    inner class PrecompiledBlock(val f: (params: Params?) -> Any?): BaseBlock()
+    inner class PrecompiledBlock(f: (params: Params?) -> Any? = {}): BaseBlock() {
+        lateinit var f: (params: Params?) -> Any?
+    }
 
     inner class Block(): BaseBlock() {
         val scopeIndex: Int
-        val nodes = ArrayList<ASTNode>(16)
+        val nodes = ArrayList<ASTNode>(8)
         init {
             expect(startBlock)
 
