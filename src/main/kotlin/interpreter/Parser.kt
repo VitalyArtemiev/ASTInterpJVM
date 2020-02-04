@@ -9,8 +9,10 @@ class Parser() {
 
     lateinit var tree: AST
 
+    var import = ArrayList<ExportIdentifier>()
+
     fun parse(tokens: ArrayList<Token>): Environment {
-        tree = AST(tokens)
+        tree = AST(tokens, import.toTypedArray())
         val constants = tree.constants.toTypedArray()
         val variables = tree.extractVariables()
         val functions = tree.functions.toTypedArray()

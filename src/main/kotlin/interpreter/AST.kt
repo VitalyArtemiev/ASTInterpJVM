@@ -30,8 +30,6 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         if (import != null) {
             importIdentifiers(import)
         }
-        //getDefaultFunctions()
-        //getDefaultConstants()
     }
 
     var root = Prog()
@@ -194,6 +192,20 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         }
     }
 
+    fun exportIdentifiers(): Array<ExportIdentifier> {
+        val export = ArrayList<ExportIdentifier>()
+        identifiers.filter { it.scopeLevel == 0 }.forEach {
+            when (it.type) {
+                Const -> export.add(ExportConstant(it.name, it.valType, constants[it.refId].value))
+                Var -> TODO()
+                Fun -> export.add(ExportFunction(it.name,
+                    (functions[it.refId].params.map { Pair(it.identifier.name, it.type) }.toTypedArray()),
+                    functions[it.refId].retType, functions[it.refId].body))
+            }
+        }
+
+    }
+
     inner class Identifier(
         val type: IdentifierType, mode: IdMode = IdMode.Find,
         val name: String = iter.next().text, //name initialized here cuz i needed to pass it in manually in Call()
@@ -321,9 +333,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     }
 
     open inner class BaseBlock(): Stmt()
-    inner class PrecompiledBlock(f: (params: Params?) -> Any? = {}): BaseBlock() {
-        lateinit var f: (params: Params?) -> Any?
-    }
+    inner class PrecompiledBlock(var f: ((params: Params?) -> Any?)? = null): BaseBlock()
 
     inner class Block(): BaseBlock() {
         val scopeIndex: Int
