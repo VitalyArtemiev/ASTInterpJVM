@@ -43,16 +43,18 @@ fun main(args: Array<String>) {
         print("Lexer finished with no errors")
     }
 
+    val r = Runner()
+
+    val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
+        ExportFunction("_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(r::printVarTable,
+            Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier)))
+    )
+
     val p = Parser(/*nonTerminalsText*/)
+    p.import.addAll(runTimeIdentifiers)
 
     var env = p.parse(tokens)
 
-    val r = Runner(env)
-
-    val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
-        ExportFunction("_PRINTVARTABLE", null, AST.ValType.none, r::printVarTable)
-    )
-
-    r.run()
+    r.run(env)
 }
 

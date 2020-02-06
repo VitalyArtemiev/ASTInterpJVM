@@ -1,7 +1,6 @@
 package interpreter
 
 import interpreter.TokenTypeEnum.*
-import interpreter.AST.*
 import util.Logger
 import kotlin.Exception
 
@@ -11,18 +10,21 @@ class Variable (val name: String, val type: ValType, var value: Any?) { //member
     }
 }
 
-class Runner(env: Environment) {
+class Runner {
     val logger = Logger("Runner")
 
-    val varTable: Array<Variable> = env.variables
-    val constTable: Array<ConstDecl> = env.constants
-    //val functions = env.functions
+    lateinit var varTable: Array<Variable>
+    lateinit var constTable: Array<ConstDecl>
+    //lateinit var functions = env.functions
 
     val callStack = ArrayList<FunDecl>()
 
-    val root = env.root
+    lateinit var root: ASTNode
 
-    fun run() {
+    fun run(env: Environment) {
+        varTable = env.variables
+        constTable = env.constants
+        root = env.root
         executeNode(root)
     }
 
@@ -30,17 +32,17 @@ class Runner(env: Environment) {
         when (node) {
             is UnOp -> {
                 val right = evalExpr(node.right)
-                val result = when (node.op) {
-                    unaryMinusOp -> {- right}
-                    notOp -> {! right}
-                    else -> {throw Exception("Expression evaluation encountered unsupported operator: $node")}
-                }
 
-                return result
+                return when (node.op) {
+                    unaryMinusOp -> {- right}
+                    unaryPlusOp -> {right}
+                    notOp -> {! right}
+                    else -> {throw Exception("Expression evaluation encountered unsupported operator: ${node.op}")}
+                }
             }
             is BinOp -> {
-                var left = evalExpr(node.left)
-                var right = evalExpr(node.right)
+                val left = evalExpr(node.left)
+                val right = evalExpr(node.right)
 
                 val result = when (node.op) {
                     plusOP -> {left + right}
@@ -65,7 +67,8 @@ class Runner(env: Environment) {
                 return result
             }
             is VarRef -> {
-                return varTable[node.varId].value ?: throw Exception("Referencing uninitialised variable")
+                return varTable[node.varId].value ?:
+                throw Exception("Referencing uninitialised variable ${varTable[node.varId]}")
             }
             is ConstRef -> {
                 return constTable[node.constId].value
@@ -115,12 +118,45 @@ class Runner(env: Environment) {
             is Call  -> {
                 return executeCall(node)
             }
+            is VarDecl -> {
+                if (node.expr != null) {
+                    val result = executeNode(node.expr as Expr)
+                    require(result.type == varTable[node.identifier.refId].type)
+                    varTable[node.identifier.refId].value = result.value
+                }
+                return ExecutionResult(ValType.none, null)
+            }
+            is ConstDecl, is FunDecl -> {
+                //todo: hmm
+                return ExecutionResult(ValType.none, null)
+            }
+            is Assign -> {
+                require(node.identifier.type == IdentifierType.Var)//todo: are these checks needed
+                val result = executeNode(node.expr)
+                require(result.type == varTable[node.identifier.refId].type)//todo: are these checks needed
+                varTable[node.identifier.refId].value = result.value
+                return ExecutionResult(ValType.none, null)
+            }
+            is If -> {
+                val result = executeNode(node.condition)
+                require(result.type == ValType.bool)//todo: are these checks needed
+                return when (result.value as Boolean) {
+                    true -> { executeNode(node.s) }
+                    false -> { ExecutionResult(ValType.none, null) }
+                }
+            }
+            is While -> {
+                var result = executeNode(node.condition)
+                require(result.type == ValType.bool)
+                while (result.value as Boolean) {
+                    executeNode(node.s)
+                }
+                return ExecutionResult(ValType.none, null)
+            }
             else -> {
                 throw Exception("Execution encountered unsupported node: $node")
             }
         }
-
-
     }
 
     fun executeCall(node: Call): ExecutionResult {
@@ -151,6 +187,7 @@ class Runner(env: Environment) {
 
                     parResults[i] = result.value //init param variables
                 }
+
                 val result = (node.callee.body as PrecompiledBlock).f(parResults)
                 val type: ValType = when(result) {
                     is Int -> {ValType.int}
@@ -160,9 +197,6 @@ class Runner(env: Environment) {
                 }
 
                 return ExecutionResult(type, result)
-            }
-            else -> {
-                throw Exception("WTF") // for some reason sealed class is incompatible with inner
             }
         }
     }

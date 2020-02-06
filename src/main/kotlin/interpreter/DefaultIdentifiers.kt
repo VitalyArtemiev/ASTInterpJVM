@@ -3,7 +3,7 @@ package interpreter
 import interpreter.AST.*
 
 sealed class ExportIdentifier(val name: String, val type: IdentifierType, val valType: ValType)
-class ExportFunction(name: String, val params: Signature?, retType: ValType, val body: Block):
+class ExportFunction(name: String, val params: Signature?, retType: ValType, val body: BaseBlock):
     ExportIdentifier(name, IdentifierType.Fun, retType)
 class ExportConstant(name: String, valType: ValType, val value: Any):
     ExportIdentifier(name, IdentifierType.Const, valType)
@@ -27,5 +27,6 @@ fun writeLn(params: Params?) {
 
 val defaultIdentifiers: Array<ExportIdentifier> = arrayOf(
     ExportConstant("pi", ValType.float, 3.1415),
-    ExportFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none, PrecompiledBlock(::writeLn))
+    ExportFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none,
+        PrecompiledBlock(::writeLn, Token(-2, "Precompiled function writeln", TokenTypeEnum.identifier)))
 )

@@ -11,7 +11,7 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
     constDecl("^const"), varDecl("^var"), funDecl("^fun"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"), retStmt("^return"),
-    printVarTable("^_PRINTVARTABLE"),
+    //printVarTable("^_PRINTVARTABLE"), is now runtime identifier
     type("^(int|float|bool)"),
     assignOp("^:="), memberOp("^\\."),
     plusOP("^\\+"), minusOp("^-"), unaryPlusOp("(?!x)x"), unaryMinusOp("(?!x)x"),
@@ -35,12 +35,7 @@ val addOps = setOf (plusOP, minusOp, orOP)
 val multOps = setOf (multOp, divOp, andOp)
 val relOps = setOf (equal, less, greater, notEqual, lequal, gequal)
 
-public data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD) {
-    val isTBD = {
-        print("WTF TBD $this")
-        tokenType == TBD
-    }
-}
+data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD)
 
 fun <T> ArrayList<T>.pop(): T {
     return removeAt(lastIndex)

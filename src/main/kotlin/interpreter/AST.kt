@@ -5,53 +5,53 @@ import interpreter.TokenTypeEnum.*
 import util.Stack
 import util.toRandomAccessIterator
 
-open class ASTNode(val lineIndex: Int = 0, val text: String = "")
+sealed class ASTNode(val token: Token)
 
-class Prog : ASTNode() {
+class Prog(t: Token) : ASTNode(t) {
     val nodes = ArrayList<ASTNode>(16)
 }
 
 enum class ValType { none, any, bool, int, float }
 
-sealed class Decl : ASTNode()
-class ConstDecl(val identifier: Identifier, val type: ValType, var value: Any): Decl()
-class VarDecl(val identifier: Identifier, val type: ValType, var expr: Expr?) : Decl()
-class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retType: ValType,
-                    var body: BaseBlock) : Decl()
+sealed class Decl(t: Token) : ASTNode(t)
+class ConstDecl(val identifier: Identifier, val type: ValType, var value: Any, t: Token): Decl(t)
+class VarDecl(val identifier: Identifier, val type: ValType, var expr: Expr?, t: Token): Decl(t)
+class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retType: ValType, var body: BaseBlock,
+              t: Token): Decl(t)
 
-sealed class Stmt : ASTNode()
-class If(val condition: Expr, val s: Stmt) : Stmt()
-class While(val condition: Expr, val s: Stmt) : Stmt()
-class Return(val e: Expr): Stmt()
+sealed class Stmt(t: Token) : ASTNode(t)
+class If(val condition: Expr, val s: Stmt, t: Token) : Stmt(t)
+class While(val condition: Expr, val s: Stmt, t: Token) : Stmt(t)
+class Return(val e: Expr, t: Token): Stmt(t)
 
-sealed class BaseBlock(): Stmt()
-class PrecompiledBlock(var f: ((params: Params?) -> Any?)? = null): BaseBlock()
-class Block(val scopeIndex: Int): BaseBlock() {
+sealed class BaseBlock(t: Token): Stmt(t)
+class PrecompiledBlock(var f: ((params: Params?) -> Any?), t: Token): BaseBlock(t)
+class Block(val scopeIndex: Int, t: Token): BaseBlock(t) {
     val nodes = ArrayList<ASTNode>(8)
 }
 
-class CallStmt(val call: Call): Stmt()
-class Call(val callee: FunDecl): Expr(){
+class CallStmt(val call: Call): Stmt(call.token)
+class Call(val callee: FunDecl, t: Token): Expr(t){
     val params = ArrayList<Expr>(1)
 }
-class Assign(val identifier: Identifier, var expr: Expr): Stmt()
+class Assign(val identifier: Identifier, var expr: Expr, t: Token): Stmt(t)
 
-open class Expr: ASTNode()
-class UnOp(var op: TokenTypeEnum, var right: Expr): Expr()
-class BinOp(var left: Expr, var op: TokenTypeEnum, var right: Expr): Expr()
+sealed class Expr(t: Token): ASTNode(t)
+class UnOp(var op: TokenTypeEnum, var right: Expr, t: Token): Expr(t)
+class BinOp(var left: Expr, var op: TokenTypeEnum, var right: Expr, t: Token): Expr(t)
 
-open class Value(val type: ValType): Expr()
-class ConstVal(val value: Any, type: ValType): Value(type) //anonymous constant like a number
-class ConstRef(val constId: Int, type: ValType): Value(type) //reference to named constant
-class VarRef(val varId: Int, type: ValType): Value(type)
+sealed class Value(val type: ValType, t: Token): Expr(t)
+class ConstVal(val value: Any, type: ValType, t: Token): Value(type, t) //anonymous constant like a number
+class ConstRef(val constId: Int, type: ValType, t: Token): Value(type, t) //reference to named constant
+class VarRef(val varId: Int, type: ValType, t: Token): Value(type, t)
 
 enum class IdentifierType { Const, Var, Fun }
 
 class Identifier(
     val type: IdentifierType,
     val name: String, //name initialized here cuz i needed to pass it in manually in Call()
-    val scopeLevel: Int, val scopeIndex: Int
-) : ASTNode() {
+    val scopeLevel: Int, val scopeIndex: Int, t: Token
+) : ASTNode(t) {
     var refId: Int = -1
     lateinit var valType: ValType
 
@@ -95,11 +95,12 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
     fun getProg(): Prog
     {
-        val p = Prog()
         var token = iter.peek()
+        val p = Prog(token)
+
         while (token.tokenType != EOF) {
             when (token.tokenType) {
-                varDecl, funDecl -> p.nodes.add(getDecl()) //todo: add line information
+                varDecl, funDecl -> p.nodes.add(getDecl())
                 identifier, startBlock, ifStmt, whileStmt, retStmt -> p.nodes.add(getStmt())
                 else -> {
                     println("decl or stmt expected but $token found")
@@ -127,7 +128,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                     else -> throw Exception("Expected constant expression, got $expr")
                 }
 
-                val c = ConstDecl(id, type, expr as Value)
+                val c = ConstDecl(id, type, expr as Value, token)
                 constants.add(c)
                 c
             }
@@ -138,7 +139,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                     iter.next()
                     getExpr()
                 } else null
-                val v = VarDecl(id, type, expr)
+                val v = VarDecl(id, type, expr, token)
                 variables.add(v)
                 v
             }
@@ -176,7 +177,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
                 val block = getBlock()
 
-                var f = FunDecl(id, params.toTypedArray(), type, block)
+                var f = FunDecl(id, params.toTypedArray(), type, block, token)
                 functions.add(f)
                 f
             }
@@ -185,6 +186,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     }
 
     fun getParDecl(scopeLevel: Int, scopeIndex: Int): VarDecl {
+        val token = iter.cur()
         val id = getIdentifier(
             type = Var,
             mode = IdMode.Declare,
@@ -196,7 +198,9 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             getExpr()
         } else null
 
-        return VarDecl(id, type, expr)
+        val v = VarDecl(id, type, expr, token)
+        variables.add(v)
+        return v
     }
 
     enum class IdMode {Declare, Import, Find}
@@ -205,26 +209,31 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         for (ei in ids) {
             when (ei) {
                 is ExportFunction -> {
-                    val id = Identifier(Fun, IdMode.Import, ei.name)
+                    val id = getIdentifier(Fun, IdMode.Import, ei.name)
                     val params = ArrayList<VarDecl>()
 
                     //create own block
                     if (ei.params != null) {
                         for ((name, type) in ei.params) {
-                            val id = Identifier(Var, IdMode.Import, name, 1, ++maxScopeIndex) //own scope for imported fun params
-                            params.add(VarDecl(id, type, null))
+                            val id = getIdentifier(Var, IdMode.Import, name, 1, ++maxScopeIndex) //own scope for imported fun params
+
+                            val v = VarDecl(id, type, null, Token(-1, "External token $name", identifier))
+                            variables.add(v)
+                            params.add(v)
                         }
                     }
 
-                    FunDecl(id, params.toTypedArray(), ei.valType, PrecompiledBlock(ei.body))
+                    functions.add(FunDecl(id, params.toTypedArray(), ei.valType, ei.body, Token(-1, "External token ${ei.name}", identifier)))
                 }
                 is ExportConstant -> {
-                    val id = Identifier(Const, IdMode.Import, ei.name)
-                    constants[id.refId].value = ei.value
+                    val id = getIdentifier(Const, IdMode.Import, ei.name)
+                    constants.add(ConstDecl(id, ei.valType, ei.value, Token(-1, "External token ${ei.name}", identifier)))
                 }
                 is ExportVariable -> {
-                    val id = Identifier(Var, IdMode.Import, ei.name)
-                    variables[id.refId].expr = ConstVal(ei.defaultValue, ei.valType)
+                    val id = getIdentifier(Var, IdMode.Import, ei.name)
+                    variables.add(VarDecl(id, ei.valType, ConstVal(ei.defaultValue, ei.valType,
+                        Token(-1, "External token ${ei.name}", intValue)),  //todo: assign appropriate type
+                        Token(-1, "External token ${ei.name}", identifier)))
                 }
             }
         }
@@ -232,16 +241,16 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
     fun exportIdentifiers(): Array<ExportIdentifier> {
         val export = ArrayList<ExportIdentifier>()
-        identifiers.filter { it.scopeLevel == 0 }.forEach {
-            when (it.type) {
-                Const -> export.add(ExportConstant(it.name, it.valType, constants[it.refId].value))
+        identifiers.filter { it.scopeLevel == 0 }.forEach { id ->
+            when (id.type) {
+                Const -> export.add(ExportConstant(id.name, id.valType, constants[id.refId].value))
                 Var -> TODO()
-                Fun -> export.add(ExportFunction(it.name,
-                    (functions[it.refId].params.map { Pair(it.identifier.name, it.type) }.toTypedArray()),
-                    functions[it.refId].retType, functions[it.refId].body))
+                Fun -> export.add(ExportFunction(id.name,
+                    (functions[id.refId].params.map { p -> Pair(p.identifier.name, p.type) }.toTypedArray()),
+                    functions[id.refId].retType, functions[id.refId].body))
             }
         }
-
+        return export.toTypedArray()
     }
 
     fun getIdentifier(
@@ -261,7 +270,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
         when (mode) {
             IdMode.Declare -> {
-                val i = Identifier(type, name, scopeLevel, scopeIndex)
+                val i = Identifier(type, name, scopeLevel, scopeIndex, iter.cur())
 
                 if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(i)
@@ -278,7 +287,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 return i
             }
             IdMode.Find -> {
-                val id= identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) }
+                val id = identifiers.find { it.name == name && (it.scopeIndex == scopeIndex || it.scopeLevel < scopeLevel) }
                     ?: throw Exception("Identifier <$name> not found")
                 //refId = id.refId //todo: possible tomfoolery when finding declared variable
                 return id
@@ -286,7 +295,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             IdMode.Import -> {
                 scopeLevel = 0
                 scopeIndex = 0
-                val i = Identifier(type, name, scopeLevel, scopeIndex)
+                val i = Identifier(type, name, scopeLevel, scopeIndex, iter.peek())
 
                 if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(i)
@@ -325,15 +334,15 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         return when (token.tokenType) {
             ifStmt -> {
                 expect(ifStmt)
-                If(getExpr(), getBlock())
+                If(getExpr(), getBlock(), token)
             }
             whileStmt -> {
                 expect(whileStmt)
-                While(getExpr(), getBlock())
+                While(getExpr(), getBlock(), token)
             }
             retStmt -> {
                 expect(retStmt)
-                Return(getExpr())
+                Return(getExpr(), token)
             }
             startBlock -> getBlock()
             identifier -> {
@@ -354,7 +363,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         scopes.push(curScopeIndex)
 
         curScopeLevel ++ //one level down
-        val b = Block(++ maxScopeIndex) //get new index
+        val b = Block(++ maxScopeIndex, iter.cur()) //get new index
         curScopeIndex = b.scopeIndex
 
         loop@ do {
@@ -362,7 +371,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
             when (token.tokenType) {
                 endBlock -> {iter.next(); break@loop}
-                varDecl, funDecl -> b.nodes.add(getDecl()) //todo: add line information
+                varDecl, funDecl -> b.nodes.add(getDecl()) 
                 identifier, startBlock, ifStmt, whileStmt, retStmt ->  b.nodes.add(getStmt())
                 else -> { //EOF handled here
                     throw Exception("decl or stmt expected but $token found")
@@ -379,10 +388,10 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
     fun getCall(): Call {
         val c: Call
-        val name = iter.cur().text
+        val name = iter.next().text
         try {
             val id = getIdentifier(Fun, name = name)
-            c = Call(functions[id.refId])
+            c = Call(functions[id.refId], iter.cur())
         } catch (e: Exception) {
             throw Exception("Could not find callee <$name>;\n$e")
         }
@@ -399,8 +408,9 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     fun getAssign(): Assign {
         val i = getIdentifier(type = Var)
         expect(assignOp)
+        val token = iter.cur()
         val e = getExpr()
-        return Assign(i, e)
+        return Assign(i, e, token)
     }
 
     fun getRelevantIdentifier(name: String): Identifier {
@@ -416,30 +426,33 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     fun getExpr(): Expr {
         val s  = simpExpr()
         if (iter.peek().tokenType in relOps) {
-            val op = iter.next().tokenType
+            val token = iter.next()
+            val op = token.tokenType
             val s1 = simpExpr()
-            return BinOp(s, op, s1)
+            return BinOp(s, op, s1, token)
         }
         return s
     }
 
     fun simpExpr(): Expr {
+        var token: Token? = null
         val unOp = when (iter.peek().tokenType ) {
-            plusOP -> {iter.next(); unaryPlusOp}
-            minusOp -> {iter.next(); unaryPlusOp}
+            plusOP  -> {token = iter.next(); unaryPlusOp}
+            minusOp -> {token = iter.next(); unaryPlusOp}
             else -> {null}
         }
 
         var left = getTerm()
 
         if (unOp != null) {
-            left = UnOp(unOp , left)
+            left = UnOp(unOp , left, token!!)
         }
 
         while (iter.peek().tokenType in addOps) {
-            val op = iter.next().tokenType
+            token = iter.next()
+            val op = token.tokenType
             val t = getTerm()
-            left = BinOp(left, op, t)
+            left = BinOp(left, op, t, token)
         }
         return left
     }
@@ -448,19 +461,20 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         var left = getFactor()
 
         while (iter.peek().tokenType in multOps) {
-            val op = iter.next().tokenType
+            val token = iter.next()
+            val op = token.tokenType
             val t = getFactor()
-            left = BinOp(left, op, t)
+            left = BinOp(left, op, t, token)
         }
         return left
     }
 
     fun getFactor(): Expr {
-        var base = getBase()
+        val base = getBase()
         return if (iter.peek().tokenType == powOp) {
-            iter.next()
-            var exp = getBase() //getExponent would be the same as getBAse
-            BinOp(base, powOp, exp)
+            val token = iter.next()
+            val exp = getBase() //getExponent would be the same as getBAse
+            BinOp(base, powOp, exp, token)
         } else {
             base
         }
@@ -471,15 +485,15 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         when(token.tokenType) {
             identifier -> {
                 val id = getRelevantIdentifier(token.text)
-                when (id.type) {
+                return when (id.type) {
                     Const -> {
-                        return ConstRef(id.refId, constants[id.refId].type)
+                        ConstRef(id.refId, constants[id.refId].type, token)
                     }
                     Var -> {
-                        return VarRef(id.refId, variables[id.refId].type)
+                        VarRef(id.refId, variables[id.refId].type, token)
                     }
                     Fun -> {
-                        return getCall()
+                        getCall()
                     }
                 }
             }
@@ -489,13 +503,13 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 return e
             }
             intValue -> {
-                return ConstVal(token.text.toInt(), ValType.int)
+                return ConstVal(token.text.toInt(), ValType.int, token)
             }
             floatValue -> {
-                return ConstVal(token.text.toFloat(), ValType.float)
+                return ConstVal(token.text.toFloat(), ValType.float, token)
             }
             boolValue -> {
-                return ConstVal(token.text.toBoolean(), ValType.bool)
+                return ConstVal(token.text.toBoolean(), ValType.bool, token)
             }
             else -> {
                 throw Exception("Impossible state: expected base, got $token")
