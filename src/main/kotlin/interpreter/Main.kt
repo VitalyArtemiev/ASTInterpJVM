@@ -47,7 +47,7 @@ fun main(args: Array<String>) {
 
     val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
         ExportFunction("_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(r::printVarTable,
-            Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier)))
+            Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier, 1)))
     )
 
     val p = Parser(/*nonTerminalsText*/)

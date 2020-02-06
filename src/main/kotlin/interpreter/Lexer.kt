@@ -35,7 +35,7 @@ val addOps = setOf (plusOP, minusOp, orOP)
 val multOps = setOf (multOp, divOp, andOp)
 val relOps = setOf (equal, less, greater, notEqual, lequal, gequal)
 
-data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD)
+data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD, val numInLine: Int) //todo add row info (hard because need to rw lexer)
 
 fun <T> ArrayList<T>.pop(): T {
     return removeAt(lastIndex)
@@ -54,10 +54,10 @@ class Lexer {
         val lines = File(source).readLines()
 
         for ((i, line: String) in lines.withIndex()) {
-            result.addAll(getTokens(line, i))
+            result.addAll(getTokens(line, i + 1))
         }
 
-        result.add(Token(lines.size, "End of file <$source>", EOF))
+        result.add(Token(lines.size, "End of file <$source>", EOF, 0))
         return result
     }
 
@@ -65,6 +65,8 @@ class Lexer {
         val list = ArrayList<Token>(8)
 
         val iterator = line.split(Regex("\\b")).iterator()
+
+        var numInLine: Int = 1
 
         while (iterator.hasNext()) {
             var str = iterator.next().trim()
@@ -87,7 +89,7 @@ class Lexer {
 
                 forLoop@ for (i in 1 until str.length) {
                     if (matchFound != TBD) {
-                        list.add(Token(lineIndex, tokenText, matchFound))
+                        list.add(Token(lineIndex, tokenText, matchFound, numInLine ++))
 
                         tokenText = str.drop(str.length - i).trimStart()
                         matchFound = match(tokenText)
@@ -106,7 +108,7 @@ class Lexer {
                 }
             }
 
-            list.add(Token(lineIndex, tokenText, matchFound))
+            list.add(Token(lineIndex, tokenText, matchFound, numInLine ++))
         }
 
         return list.toTypedArray()

@@ -14,9 +14,11 @@ class RandomAccessIterator<T> internal constructor( delegate: ArrayList<T>) : Mu
         return cur
     }
 
-    fun revert(index: Int = saved) {
+    fun revert(index: Int = saved) { //todo: remove
         cur = index
     }
+
+    override fun toString(): String = cur().toString()
 }
 
 fun <T> ArrayList<T>.toRandomAccessIterator(): RandomAccessIterator<T> = RandomAccessIterator(this)

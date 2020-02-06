@@ -68,7 +68,7 @@ class Runner {
             }
             is VarRef -> {
                 return varTable[node.varId].value ?:
-                throw Exception("Referencing uninitialised variable ${varTable[node.varId]}")
+                throw Exception("Referencing uninitialised variable ${varTable[node.varId]} at $node")
             }
             is ConstRef -> {
                 return constTable[node.constId].value
@@ -96,10 +96,16 @@ class Runner {
                 return ExecutionResult(ValType.none, null)
             }
             is Block -> {
-                for (n in node.nodes) {
-                    executeNode(n)
+                return if (node.nodes.size == 0) {
+                    logger.w("Runner encountered empty block at $node")
+                    ExecutionResult(ValType.none, null)
+                } else {
+                    for (n in node.nodes.dropLast(1)) {
+                        executeNode(n)
+                    }
+
+                    executeNode(node.nodes.last())
                 }
-                return ExecutionResult(ValType.none, null)
             }
 
             is Expr  -> {
@@ -117,6 +123,9 @@ class Runner {
             }
             is Call  -> {
                 return executeCall(node)
+            }
+            is CallStmt -> {
+                return executeCall(node.call)
             }
             is VarDecl -> {
                 if (node.expr != null) {
@@ -150,8 +159,13 @@ class Runner {
                 require(result.type == ValType.bool)
                 while (result.value as Boolean) {
                     executeNode(node.s)
+                    result = executeNode(node.condition)
                 }
                 return ExecutionResult(ValType.none, null)
+            }
+            is Return -> {
+                var result = executeNode(node.e)
+                return result
             }
             else -> {
                 throw Exception("Execution encountered unsupported node: $node")
@@ -193,6 +207,7 @@ class Runner {
                     is Int -> {ValType.int}
                     is Float -> {ValType.float}
                     is Boolean -> {ValType.bool}
+                    is Unit -> {return ExecutionResult(ValType.none, null)}
                     else -> {throw Exception("Unsupported return type from precompiled function: $result")}
                 }
 

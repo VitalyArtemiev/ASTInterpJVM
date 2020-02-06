@@ -28,5 +28,5 @@ fun writeLn(params: Params?) {
 val defaultIdentifiers: Array<ExportIdentifier> = arrayOf(
     ExportConstant("pi", ValType.float, 3.1415),
     ExportFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none,
-        PrecompiledBlock(::writeLn, Token(-2, "Precompiled function writeln", TokenTypeEnum.identifier)))
+        PrecompiledBlock(::writeLn, Token(-2, "Precompiled function writeln", TokenTypeEnum.identifier, 1)))
 )

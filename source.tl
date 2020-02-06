@@ -9,8 +9,12 @@ f:= -4.2345
 fun myFunction(b: int): int {
     var a: int
     a := 1 * 4 - 5 * (b +1)
+
+    return a
 }
 {
+    c:= myFunction(3)
+    myFunction(4)
     if a + b < 7 {
         c:= c+a +3
         a :=-b-c+a+4
@@ -20,6 +24,7 @@ fun myFunction(b: int): int {
         f:= f + 1
         c := c*2
         b :=a +(a- b)
+        i := i + 1
     }
     f := f * 3 / 2
     {{}}
