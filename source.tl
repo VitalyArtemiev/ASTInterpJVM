@@ -15,6 +15,7 @@ fun myFunction(b: int): int {
 {
     c:= myFunction(3)
     myFunction(4)
+    writeLn(myFunction(5))
     if a + b < 7 {
         c:= c+a +3
         a :=-b-c+a+4
@@ -30,5 +31,7 @@ fun myFunction(b: int): int {
     {{}}
         { { } }
         {  {}}
+    f := pi
+    writeLn(f < 3)
     _PRINTVARTABLE()
 }

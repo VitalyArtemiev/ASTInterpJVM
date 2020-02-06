@@ -38,9 +38,9 @@ fun main(args: Array<String>) {
 
     val tokens = l.lex(path)
     if (l.errors.isNotEmpty()) {
-        println("Lexical errors: \n" + l.errors.toString())
+        logger.e("Lexical errors: \n" + l.errors.toString())
     } else {
-        print("Lexer finished with no errors")
+        logger.i("Lexer finished with no errors")
     }
 
     val r = Runner()

@@ -3,8 +3,10 @@ package interpreter
 import util.RandomAccessIterator
 import kotlin.collections.ArrayList
 import interpreter.AST.*
+import util.Logger
 
 class Parser() {
+    val logger = Logger("Parser")
     lateinit var iter: RandomAccessIterator<Token>
 
     lateinit var tree: AST
@@ -17,7 +19,7 @@ class Parser() {
         val variables = tree.extractVariables()
         val functions = tree.functions.toTypedArray()
 
-        //val topLevelIdentifiers = tree.exportIdentifiers()
+        val topLevelIdentifiers = tree.exportIdentifiers()
 
         return Environment(tree.root, constants, variables, functions)
     }

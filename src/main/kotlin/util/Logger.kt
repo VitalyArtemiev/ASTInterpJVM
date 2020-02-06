@@ -15,7 +15,7 @@ const val WHITE = "\u001B[37m"
 class Logger (val name: String = "", var showTime: Boolean = true) {
     fun i(message: String) {
         val s = construct(message)
-        println("$BLUE$[INFO]@$s$RESET")
+        println("$BLUE[INFO]@$s$RESET")
     }
 
     fun e(message: String) {

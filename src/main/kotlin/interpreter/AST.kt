@@ -2,8 +2,11 @@ package interpreter
 
 import interpreter.IdentifierType.*
 import interpreter.TokenTypeEnum.*
+import util.Logger
 import util.Stack
 import util.toRandomAccessIterator
+
+class ASTException(msg: String): Exception(msg)
 
 sealed class ASTNode(val token: Token) {
     override fun toString(): String = "Pos ${token.line}:${token.numInLine} - ${token.tokenType}: ${token.text}"
@@ -61,6 +64,8 @@ class Identifier(
 }
 
 class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
+    val logger = Logger("AST Parser")
+
     var iter = tokens.toRandomAccessIterator()
 
     val identifiers: ArrayList<Identifier> = ArrayList()
@@ -89,7 +94,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
     fun expect(tokenType: TokenTypeEnum): Token {
         val actual = iter.next()
         if (actual.tokenType != tokenType) {
-            throw Exception("$tokenType expected, but got $actual")
+            throw ASTException("$tokenType expected, but got $actual")
         }
         return actual
     }
@@ -104,7 +109,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 varDecl, funDecl -> p.nodes.add(getDecl())
                 identifier, startBlock, ifStmt, whileStmt, retStmt -> p.nodes.add(getStmt())
                 else -> {
-                    println("decl or stmt expected but $token found")
+                    logger.e("Decl or Stmt expected but $token found")
                     iter.next()
                 }
             }
@@ -123,12 +128,12 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
                 val expr = if (iter.peek().tokenType == equal) {
                     getExpr()
-                } else throw Exception("Expected value of constant, got ${iter.peek()}")
+                } else throw ASTException("Expected value of constant, got ${iter.peek()}")
                 //Optimizer.reduce(expr) for a more complex eval
                 when (expr) {
                     is ConstVal -> {assert(type == expr.type)}
                     is ConstRef -> {assert(type == expr.type)}
-                    else -> throw Exception("Expected constant expression, got $expr")
+                    else -> throw ASTException("Expected constant expression, got $expr")
                 }
 
                 val c = ConstDecl(id, type, expr as Value, token)
@@ -169,7 +174,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                             break@loop
                         }
                         else -> {
-                            throw Exception("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
+                            throw ASTException("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
                         }
                     }
                 }
@@ -187,7 +192,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 functions.add(f)
                 f
             }
-            else -> throw Exception("This should not be possible")
+            else -> throw ASTException("This should not be possible")
         }
     }
 
@@ -277,7 +282,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(i)
                 } else {
-                    throw Exception("Identifier <$name> already exists")
+                    throw ASTException("Identifier <$name> already exists")
                 }
 
                 i.refId = when (type) {
@@ -294,7 +299,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 if (identifiers.find { it.name == name && it.scopeIndex == scopeIndex } == null) {
                     identifiers.add(i)
                 } else {
-                    throw Exception("Conflicting import identifiers: identifier <$name> already exists")
+                    throw ASTException("Conflicting import identifiers: identifier <$name> already exists")
                 }
 
                 i.refId = when (type) {
@@ -313,7 +318,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             it.name == name && (it.scopeIndex == curScopeIndex || it.scopeIndex in scopes)
         }
         if (candidates.count() == 0) {
-            throw Exception("Identifier <$name> not found")
+            throw ASTException("Identifier <$name> not found")
         }
         return candidates.maxBy { it.scopeLevel }!! //literally can't be null
     }
@@ -343,7 +348,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             "bool" -> ValType.bool
             "int" -> ValType.int
             "float" -> ValType.float
-            else -> throw Exception("Invalid type $token")
+            else -> throw ASTException("Invalid type $token")
         }
     }
 
@@ -370,13 +375,12 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                         iter.next()
                         CallStmt(getCall())
                     }
-                    else -> throw Exception("Illegal operation with val $token")
+                    else -> throw ASTException("Illegal operation with val $token")
                 }
             }
-            else -> throw Exception("This should not be possible")
+            else -> throw ASTException("This should not be possible")
         }
     }
-
 
     fun getBlock(): Block {
         expect(startBlock)
@@ -395,7 +399,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 varDecl, funDecl -> b.nodes.add(getDecl())
                 identifier, startBlock, ifStmt, whileStmt, retStmt ->  b.nodes.add(getStmt())
                 else -> { //EOF handled here
-                    throw Exception("decl or stmt expected but $token found")
+                    throw ASTException("decl or stmt expected but $token found")
                     //iter.next()
                 }
             }
@@ -413,9 +417,9 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             val id = findRelevantIdentifier(name)
 
             c = Call(functions[id.refId], iter.cur())
-            //todo: expect(id.valType == c.callee.retType)
+            require(id.valType == c.callee.retType)
         } catch (e: Exception) {
-            throw Exception("Could not find callee <$name>;\n$e")
+            throw ASTException("Could not find callee <$name>;\n$e")
         }
         expect(openParenthesis)
         while (iter.peek().tokenType != closeParenthesis) {
@@ -527,7 +531,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 return ConstVal(token.text.toBoolean(), ValType.bool, token)
             }
             else -> {
-                throw Exception("Impossible state: expected base, got $token")
+                throw ASTException("Impossible state: expected base, got $token")
             }
         }
     }
