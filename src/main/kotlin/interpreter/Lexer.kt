@@ -108,6 +108,10 @@ class Lexer {
                 }
             }
 
+            if (matchFound == lineComment) {
+                return list.toTypedArray()
+            }
+
             list.add(Token(lineIndex, tokenText, matchFound, numInLine ++))
         }
 

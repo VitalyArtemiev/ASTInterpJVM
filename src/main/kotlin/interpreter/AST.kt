@@ -162,24 +162,25 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
                 val blockScopeLevel = curScopeLevel + 1 //to fix parameter scope
                 val blockScopeIndex = maxScopeIndex + 1
 
-                loop@ while (true) {
-                    params.add(getParDecl(blockScopeLevel, blockScopeIndex))
-                    when (iter.peek().tokenType) {
-                        comma -> {
-                            iter.next()
-                            continue@loop
-                        }
-                        closeParenthesis -> {
-                            iter.next()
-                            break@loop
-                        }
-                        else -> {
-                            throw ASTException("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
+                if (iter.peek().tokenType != closeParenthesis) {
+                    loop@ while (true) {
+                        params.add(getParDecl(blockScopeLevel, blockScopeIndex))
+                        when (iter.peek().tokenType) {
+                            comma -> {
+                                iter.next()
+                                continue@loop
+                            }
+                            closeParenthesis -> {
+                                break@loop
+                            }
+                            else -> {
+                                throw ASTException("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
+                            }
                         }
                     }
                 }
 
-                //closeParenthesis consumed
+                expect(closeParenthesis)
 
                 val type = if (iter.peek().tokenType == colon) {
                     getType()
@@ -188,7 +189,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
                 val block = getBlock()
 
-                var f = FunDecl(id, params.toTypedArray(), type, block, token)
+                val f = FunDecl(id, params.toTypedArray(), type, block, token)
                 functions.add(f)
                 f
             }
@@ -266,11 +267,11 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         actualScopeLevel: Int = -1, actualScopeIndex: Int = -1
     ): Identifier {
 
-        var scopeLevel: Int = when (actualScopeLevel) {
+        val scopeLevel: Int = when (actualScopeLevel) {
             -1 -> curScopeLevel
             else -> actualScopeLevel
         }
-        var scopeIndex: Int = when (actualScopeIndex) {
+        val scopeIndex: Int = when (actualScopeIndex) {
             -1 -> curScopeIndex
             else -> actualScopeIndex
         }
@@ -421,15 +422,42 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         } catch (e: Exception) {
             throw ASTException("Could not find callee <$name>;\n$e")
         }
+
         expect(openParenthesis)
-        while (iter.peek().tokenType != closeParenthesis) {
-            val node = getExpr()
-            c.params.add(node)
+
+        if (iter.peek().tokenType != closeParenthesis) {
+            while (true) {
+                val node = getExpr()
+                c.params.add(node)
+
+                if (iter.peek().tokenType == closeParenthesis) {
+                    break
+                }
+                expect(comma)
+            }
         }
-        iter.next()
+
+        expect(closeParenthesis)
 
         return c
     }
+
+    /*loop@ while (true) {
+        params.add(getParDecl(blockScopeLevel, blockScopeIndex))
+        when (iter.peek().tokenType) {
+            comma -> {
+                iter.next()
+                continue@loop
+            }
+            closeParenthesis -> {
+                iter.next()
+                break@loop
+            }
+            else -> {
+                throw ASTException("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
+            }
+        }
+    }*/
 
     fun getAssign(): Assign {
         val token = iter.next()
@@ -457,7 +485,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         var token: Token? = null
         val unOp = when (iter.peek().tokenType ) {
             plusOP  -> {token = iter.next(); unaryPlusOp}
-            minusOp -> {token = iter.next(); unaryPlusOp}
+            minusOp -> {token = iter.next(); unaryMinusOp}
             else -> {null}
         }
 

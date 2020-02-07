@@ -43,8 +43,16 @@ class Runner {
                 }
             }
             is BinOp -> {
-                val left = evalExpr(node.left)
-                val right = evalExpr(node.right)
+                var left = evalExpr(node.left)
+                var right = evalExpr(node.right)
+
+                if (node.op in relOps) {
+                    if (left is Float && right is Int) {
+                        right = right.toFloat()
+                    } else if (left is Int && right is Float) {
+                        left = left.toFloat()
+                    }
+                }
 
                 val result = when (node.op) {
                     plusOP -> {left + right}
@@ -98,16 +106,19 @@ class Runner {
                 return ExecutionResult(ValType.none, null)
             }
             is Block -> {
-                return if (node.nodes.size == 0) {
+                if (node.nodes.size == 0) {
                     logger.w("Runner encountered empty block at $node")
-                    ExecutionResult(ValType.none, null)
-                } else {
-                    for (n in node.nodes.dropLast(1)) {
+                }
+
+                for (n in node.nodes) {
+                    if (n is Return) {
+                        return executeNode(n)
+                    } else {
                         executeNode(n)
                     }
-
-                    executeNode(node.nodes.last())
                 }
+
+                return ExecutionResult(ValType.none, null)
             }
 
             is Expr  -> {
@@ -223,17 +234,12 @@ class Runner {
         for (v in varTable) {
             println(v)
         }
-        println("${util.RESET}")
+        println(util.RESET)
 
         println("${util.PURPLE}Constants: ${util.CYAN}")
         for (v in constTable) {
             println(v)
         }
-        print("${util.RESET}")
+        println(util.RESET)
     }
 }
-
-/*
-val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
-    ExportFunction("_PRINTVARTABLE", null, ValType.none, Runner::printVarTable)
-)*/

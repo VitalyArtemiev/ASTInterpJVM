@@ -8,6 +8,7 @@ var nonTerminalsPath: String = " "
 
 fun main(args: Array<String>) {
     val logger = Logger("Main")
+
     var pathIndices: Int
 
     val terminalsText: String = try {
