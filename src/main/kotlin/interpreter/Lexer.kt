@@ -11,7 +11,6 @@ enum class TokenTypeEnum(pattern: String, val regex: Regex = Regex(pattern)) {
     intValue("^(\\d+)"), floatValue("^(\\d+)|(\\d+\\.\\d+((e|E)(-|\\+)?\\d+)?)"), boolValue("^(true|false)"),
     constDecl("^const"), varDecl("^var"), funDecl("^fun"),
     ifStmt("^if"), whileStmt("^while"), forStmt("^for"), retStmt("^return"),
-    //printVarTable("^_PRINTVARTABLE"), is now runtime identifier
     type("^(int|float|bool)"),
     assignOp("^:="), memberOp("^\\."),
     plusOP("^\\+"), minusOp("^-"), unaryPlusOp("(?!x)x"), unaryMinusOp("(?!x)x"),

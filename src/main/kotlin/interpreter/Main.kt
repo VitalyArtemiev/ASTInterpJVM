@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
         defaultNonTerminals
     }
 
-    var path = "source.tl"
+    var path = "langtest.tl"
 
     val l = Lexer(terminalsText)
 
@@ -46,8 +46,8 @@ fun main(args: Array<String>) {
 
     val r = Runner()
 
-    val runTimeIdentifiers: Array<ExportIdentifier> = arrayOf(
-        ExportFunction("_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(r::printVarTable,
+    val runTimeIdentifiers: Array<ExternIdentifier> = arrayOf(
+        ExternFunction("_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(r::printVarTable,
             Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier, 1)))
     )
 

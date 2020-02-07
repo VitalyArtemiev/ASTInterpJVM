@@ -1,15 +1,14 @@
 package interpreter
 
-import interpreter.AST.*
 import util.Logger
 
-sealed class ExportIdentifier(val name: String, val type: IdentifierType, val valType: ValType)
-class ExportFunction(name: String, val params: Signature?, retType: ValType, val body: BaseBlock):
-    ExportIdentifier(name, IdentifierType.Fun, retType)
-class ExportConstant(name: String, valType: ValType, val value: Any):
-    ExportIdentifier(name, IdentifierType.Const, valType)
-class ExportVariable(name: String, valType: ValType, val defaultValue: Any):
-    ExportIdentifier(name, IdentifierType.Var, valType)
+sealed class ExternIdentifier(val name: String, val type: IdentifierType, val valType: ValType)
+class ExternFunction(name: String, val params: Signature?, retType: ValType, val body: BaseBlock):
+    ExternIdentifier(name, IdentifierType.Fun, retType)
+class ExternConstant(name: String, valType: ValType, val value: Any):
+    ExternIdentifier(name, IdentifierType.Const, valType)
+class ExternVariable(name: String, valType: ValType, val defaultValue: Any):
+    ExternIdentifier(name, IdentifierType.Var, valType)
 
 typealias Signature = Array<Pair<String, ValType>>
 typealias Params = Array<Any?>
@@ -18,9 +17,6 @@ fun writeLn(params: Params?) {
     if (params != null) {
         for (p in params) {
             print(p)
-            /*when (p) {
-
-            }*/
         }
     }
     println()
@@ -48,18 +44,18 @@ fun assertEquals(params: Params?) {
     }
 }
 
-val defaultIdentifiers: Array<ExportIdentifier> = arrayOf(
-    ExportConstant("pi", ValType.float, 3.1415f),
+val defaultIdentifiers: Array<ExternIdentifier> = arrayOf(
+    ExternConstant("pi", ValType.float, 3.1415f),
 
-    ExportFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none,
+    ExternFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none,
         PrecompiledBlock(::writeLn,
             Token(-2, "Precompiled function writeln", TokenTypeEnum.identifier, 1))),
 
-    ExportFunction("assert", arrayOf(Pair("value", ValType.bool)), ValType.none,
+    ExternFunction("assert", arrayOf(Pair("value", ValType.bool)), ValType.none,
         PrecompiledBlock(::assert,
             Token(-2, "Precompiled function assert", TokenTypeEnum.identifier, 1))),
 
-    ExportFunction("assertEquals", arrayOf(Pair("value1", ValType.any), Pair("value2", ValType.any)),
+    ExternFunction("assertEquals", arrayOf(Pair("value1", ValType.any), Pair("value2", ValType.any)),
         ValType.none,
         PrecompiledBlock(::assertEquals,
             Token(-2, "Precompiled function assertEquals", TokenTypeEnum.identifier, 1)))

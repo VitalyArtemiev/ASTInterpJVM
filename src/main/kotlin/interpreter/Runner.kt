@@ -2,6 +2,7 @@ package interpreter
 
 import interpreter.TokenTypeEnum.*
 import util.Logger
+import util.Stack
 import kotlin.Exception
 
 class RunnerException(msg: String): Exception(msg)
@@ -13,19 +14,20 @@ class Variable (val name: String, val type: ValType, var value: Any?) { //member
 }
 
 class Runner {
-    val logger = Logger("Runner")
+    private val logger = Logger("Runner")
 
     lateinit var varTable: Array<Variable>
     lateinit var constTable: Array<ConstDecl>
-    //lateinit var functions = env.functions
+    lateinit var functions: Array<FunDecl>
 
-    val callStack = ArrayList<FunDecl>()
+    private val callStack = Stack<Int>()
 
     lateinit var root: ASTNode
 
     fun run(env: Environment) {
         varTable = env.variables
         constTable = env.constants
+        functions = env.functions
         root = env.root
         executeNode(root)
     }
@@ -66,7 +68,7 @@ class Runner {
                     xorOp -> {left xor right}
 
                     equal -> {left as Comparable<Any> == right} //todo: check if this comparable trick works
-                    less -> {left as Comparable<Any> < right as Comparable<Any>}
+                    less -> {left as Comparable<Any> < right}
                     greater -> {left as Comparable<Any> > right}
                     notEqual -> {left as Comparable<Any> != right}
                     lequal -> {left as Comparable<Any> <= right}
@@ -144,6 +146,7 @@ class Runner {
                 if (node.expr != null) {
                     val result = executeNode(node.expr as Expr)
                     require(result.type == varTable[node.identifier.refId].type)
+                        {"Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
                     varTable[node.identifier.refId].value = result.value
                 }
                 return ExecutionResult(ValType.none, null)
@@ -153,15 +156,18 @@ class Runner {
                 return ExecutionResult(ValType.none, null)
             }
             is Assign -> {
-                require(node.identifier.type == IdentifierType.Var)//todo: are these checks needed
                 val result = executeNode(node.expr)
                 require(result.type == varTable[node.identifier.refId].type)//todo: are these checks needed
+                    {"Assign type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
+
                 varTable[node.identifier.refId].value = result.value
                 return ExecutionResult(ValType.none, null)
             }
             is If -> {
                 val result = executeNode(node.condition)
                 require(result.type == ValType.bool)//todo: are these checks needed
+                    {"Condition type error: expected bool, got ${result.type} "}
+
                 return when (result.value as Boolean) {
                     true -> { executeNode(node.s) }
                     false -> { ExecutionResult(ValType.none, null) }
@@ -170,6 +176,7 @@ class Runner {
             is While -> {
                 var result = executeNode(node.condition)
                 require(result.type == ValType.bool)
+                    {"Condition type error: expected bool, got ${result.type} "}
                 while (result.value as Boolean) {
                     executeNode(node.s)
                     result = executeNode(node.condition)
@@ -178,6 +185,8 @@ class Runner {
             }
             is Return -> {
                 var result = executeNode(node.e)
+                require(result.type == functions[callStack.peek()].retType)
+                    {"Return type error: expected ${functions[callStack.peek()].retType}, got ${result.type}"}
                 return result
             }
             else -> {
@@ -187,7 +196,8 @@ class Runner {
     }
 
     fun executeCall(node: Call): ExecutionResult {
-        when (node.callee.body) {
+        callStack.push(node.callee.identifier.refId)
+        val result = when (node.callee.body) {
             is Block -> {
                 val signature = node.callee.params
                 for ((i, p) in node.params.withIndex()) {
@@ -200,7 +210,7 @@ class Runner {
                     varTable[signature[i].identifier.refId].value = result.value //init param variables
                 }
 
-                return executeNode(node.callee.body)
+                executeNode(node.callee.body)
             } //execute function body block
             is PrecompiledBlock -> {
                 val signature = node.callee.params
@@ -224,9 +234,11 @@ class Runner {
                     else -> {throw RunnerException("Unsupported return type from precompiled function: $result")}
                 }
 
-                return ExecutionResult(type, result)
+                ExecutionResult(type, result)
             }
         }
+        callStack.pop()
+        return result
     }
 
     fun printVarTable(params: Params?) {

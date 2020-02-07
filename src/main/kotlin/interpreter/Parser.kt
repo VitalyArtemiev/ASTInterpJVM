@@ -2,7 +2,6 @@ package interpreter
 
 import util.RandomAccessIterator
 import kotlin.collections.ArrayList
-import interpreter.AST.*
 import util.Logger
 
 class Parser() {
@@ -11,7 +10,7 @@ class Parser() {
 
     lateinit var tree: AST
 
-    var import = ArrayList<ExportIdentifier>()
+    var import = ArrayList<ExternIdentifier>()
 
     fun parse(tokens: ArrayList<Token>): Environment {
         tree = AST(tokens, import.toTypedArray())

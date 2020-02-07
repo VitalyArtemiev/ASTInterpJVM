@@ -63,7 +63,7 @@ class Identifier(
     override fun toString(): String = "$type #$refId $name: $valType si: $scopeIndex sl: $scopeLevel"
 }
 
-class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
+class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
     val logger = Logger("AST Parser")
 
     var iter = tokens.toRandomAccessIterator()
@@ -219,10 +219,10 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
     enum class IdMode {Declare, Import}
 
-    fun importIdentifiers(ids: Array<ExportIdentifier>) {
+    fun importIdentifiers(ids: Array<ExternIdentifier>) {
         for (ei in ids) {
             when (ei) {
-                is ExportFunction -> {
+                is ExternFunction -> {
                     val id = getIdentifier(Fun, IdMode.Import, ei.name, 0, 0)
                     id.valType = ei.valType
 
@@ -243,13 +243,13 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
 
                     functions.add(FunDecl(id, params.toTypedArray(), ei.valType, ei.body, Token(-1, "External token ${ei.name}", identifier, 0)))
                 }
-                is ExportConstant -> {
+                is ExternConstant -> {
                     val id = getIdentifier(Const, IdMode.Import, ei.name, 0, 0)
                     id.valType = ei.valType
 
                     constants.add(ConstDecl(id, ei.valType, ei.value, Token(-1, "External token ${ei.name}", identifier, 0)))
                 }
-                is ExportVariable -> {
+                is ExternVariable -> {
                     val id = getIdentifier(Var, IdMode.Import, ei.name, 0, 0)
                     id.valType = ei.valType
 
@@ -324,13 +324,13 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         return candidates.maxBy { it.scopeLevel }!! //literally can't be null
     }
 
-    fun exportIdentifiers(): Array<ExportIdentifier> {
-        val export = ArrayList<ExportIdentifier>()
+    fun exportIdentifiers(): Array<ExternIdentifier> {
+        val export = ArrayList<ExternIdentifier>()
         identifiers.filter { it.scopeLevel == 0 }.forEach { id ->
             when (id.type) {
-                Const -> export.add(ExportConstant(id.name, id.valType, constants[id.refId].value))
+                Const -> export.add(ExternConstant(id.name, id.valType, constants[id.refId].value))
                 //Var -> TODO()
-                Fun -> export.add(ExportFunction(id.name,
+                Fun -> export.add(ExternFunction(id.name,
                     (functions[id.refId].params.map { p -> Pair(p.identifier.name, p.type) }.toTypedArray()),
                     functions[id.refId].retType, functions[id.refId].body))
             }
@@ -442,23 +442,6 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
         return c
     }
 
-    /*loop@ while (true) {
-        params.add(getParDecl(blockScopeLevel, blockScopeIndex))
-        when (iter.peek().tokenType) {
-            comma -> {
-                iter.next()
-                continue@loop
-            }
-            closeParenthesis -> {
-                iter.next()
-                break@loop
-            }
-            else -> {
-                throw ASTException("Error during parameter declaration: expected ',' or ')'. got ${iter.peek()}")
-            }
-        }
-    }*/
-
     fun getAssign(): Assign {
         val token = iter.next()
         val id = findRelevantIdentifier(token.text)
@@ -557,6 +540,9 @@ class AST(tokens: ArrayList<Token>, import: Array<ExportIdentifier>? = null) {
             }
             boolValue -> {
                 return ConstVal(token.text.toBoolean(), ValType.bool, token)
+            }
+            notOp -> {
+                return UnOp(notOp, getBase(), token)
             }
             else -> {
                 throw ASTException("Impossible state: expected base, got $token")
