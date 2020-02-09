@@ -5,6 +5,7 @@ import interpreter.TokenTypeEnum.*
 import util.Logger
 import util.Stack
 import util.toRandomAccessIterator
+import kotlin.reflect.full.memberProperties
 
 class ASTException(msg: String): Exception(msg)
 
@@ -551,8 +552,8 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
     }
 }
 
-/*class TreeCrawler {
-    class History(var node: AST.ASTNode) {
+class ASTCrawler {
+    class History(var node: ASTNode) {
         var lastVisited: Int = -1
     }
     val stack = Stack<History>()
@@ -560,7 +561,17 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
     lateinit var curNode: ASTNode
     
     fun visitChild(index: Int) {
-        curNode = curNode.children[index]
+        for (p in curNode::class.memberProperties) {
+            if (p is ASTNode) {
+
+            }
+        }
+
+
+
+
+
+        //curNode = curNode.children[index]
     }
-}*/
+}
 
