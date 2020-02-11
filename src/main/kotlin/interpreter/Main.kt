@@ -8,17 +8,6 @@ var terminalsPath: String = " "
 var nonTerminalsPath: String = " "
 
 fun main(args: Array<String>) {
-    var cv = ConstVal(0.5f, ValType.float, Token(1, "", TokenTypeEnum.plusOP, 1))
-
-    var bp = BinOp(cv, TokenTypeEnum.plusOP, cv, Token(1, "", TokenTypeEnum.plusOP, 1))
-    for (p in bp::class.memberProperties) {
-        if (p is Expr) {//https://riptutorial.com/kotlin/example/23977/getting-values-of-all-properties-of-a-class
-            print(p)
-        }
-    }
-
-
-
     val logger = Logger("Main")
 
     var pathIndices: Int

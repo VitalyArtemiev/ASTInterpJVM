@@ -558,20 +558,43 @@ class ASTCrawler {
     }
     val stack = Stack<History>()
     
-    lateinit var curNode: ASTNode
-    
-    fun visitChild(index: Int) {
-        for (p in curNode::class.memberProperties) {
-            if (p is ASTNode) {
+    var curNode: ASTNode
+        get() = stack.peek().node
+        set(value) { stack.push(History(value)) }
 
+
+    fun visitChild(node: ASTNode) {
+        for (p in curNode::class.memberProperties) {
+            val v = p.getter.call(curNode)
+            when (v) {
+                is Prog -> {
+                    for (n in v.nodes) {
+                        visitChild(n)
+                    }
+                }
+                is Block -> {
+                    for (n in v.nodes) {
+                        visitChild(n)
+                    }
+                }
+                is ASTNode -> {
+                    if (!checkLeaf(v)) {
+                        visitChild(node)
+                    }
+                }
             }
         }
 
-
-
-
-
         //curNode = curNode.children[index]
+    }
+
+    fun checkLeaf(node: ASTNode): Boolean {
+        return when (node) {
+            is ConstVal, is ConstRef -> true
+            is VarRef -> {
+                TODO()}
+            else -> false
+        }
     }
 }
 
