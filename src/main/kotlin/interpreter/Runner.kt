@@ -3,7 +3,10 @@ package interpreter
 import interpreter.TokenTypeEnum.*
 import util.Logger
 import util.Stack
+import java.time.LocalTime
+import java.time.temporal.TemporalAmount
 import kotlin.Exception
+import kotlin.system.measureNanoTime
 
 class RunnerException(msg: String): Exception(msg)
 
@@ -29,7 +32,18 @@ class Runner {
         constTable = env.constants
         functions = env.functions
         root = env.root
-        executeNode(root)
+
+
+        logger.i("Execution started")
+
+        val timeTaken = measureNanoTime {
+            executeNode(root)
+        }
+
+        logger.i("Execution ended")
+
+
+        logger.i("Time taken: $timeTaken nanoseconds")
     }
 
     fun evalExpr(node: Expr): Any {

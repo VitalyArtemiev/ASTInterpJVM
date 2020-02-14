@@ -82,4 +82,6 @@ b:= f()
 assertEquals(a, 5)
 assertEquals(b, 6)
 
+{}
+
 _PRINTVARTABLE()

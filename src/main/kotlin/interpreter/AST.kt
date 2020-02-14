@@ -5,7 +5,6 @@ import interpreter.TokenTypeEnum.*
 import util.Logger
 import util.Stack
 import util.toRandomAccessIterator
-import kotlin.reflect.full.memberProperties
 
 class ASTException(msg: String): Exception(msg)
 
@@ -26,9 +25,9 @@ class FunDecl(val identifier: Identifier, val params: Array<VarDecl>, val retTyp
               t: Token): Decl(t)
 
 sealed class Stmt(t: Token) : ASTNode(t)
-class If(val condition: Expr, val s: Stmt, t: Token) : Stmt(t)
-class While(val condition: Expr, val s: Stmt, t: Token) : Stmt(t)
-class Return(val e: Expr, t: Token): Stmt(t)
+class If(var condition: Expr, val s: Stmt, t: Token) : Stmt(t)//todo: replace statement with block
+class While(var condition: Expr, val s: Stmt, t: Token) : Stmt(t)
+class Return(var e: Expr, t: Token): Stmt(t)
 
 sealed class BaseBlock(t: Token): Stmt(t)
 class PrecompiledBlock(var f: ((params: Params?) -> Any?), t: Token): BaseBlock(t)
@@ -548,52 +547,6 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
             else -> {
                 throw ASTException("Impossible state: expected base, got $token")
             }
-        }
-    }
-}
-
-class ASTCrawler {
-    class History(var node: ASTNode) {
-        var lastVisited: Int = -1
-    }
-    val stack = Stack<History>()
-    
-    var curNode: ASTNode
-        get() = stack.peek().node
-        set(value) { stack.push(History(value)) }
-
-
-    fun visitChild(node: ASTNode) {
-        for (p in curNode::class.memberProperties) {
-            val v = p.getter.call(curNode)
-            when (v) {
-                is Prog -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-                is Block -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-                is ASTNode -> {
-                    if (!checkLeaf(v)) {
-                        visitChild(node)
-                    }
-                }
-            }
-        }
-
-        //curNode = curNode.children[index]
-    }
-
-    fun checkLeaf(node: ASTNode): Boolean {
-        return when (node) {
-            is ConstVal, is ConstRef -> true
-            is VarRef -> {
-                TODO()}
-            else -> false
         }
     }
 }

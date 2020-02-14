@@ -55,8 +55,18 @@ fun main(args: Array<String>) {
     val p = Parser(/*nonTerminalsText*/)
     p.import.addAll(runTimeIdentifiers)
 
-    var env = p.parse(tokens)
+    val env = p.parse(tokens)
 
+    logger.i("Parser finished")
+
+    logger.d("Running unoptimized tree")
     r.run(env)
+
+    val o = Optimizer(r)
+
+    val optimizedEnv = o.optimize(env) //env is modified here
+
+    logger.d("Running optimized tree")
+    r.run(optimizedEnv)
 }
 
