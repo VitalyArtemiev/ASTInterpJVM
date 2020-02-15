@@ -1,11 +1,11 @@
 package interpreter
 
 import interpreter.TokenTypeEnum.*
+import kotlinx.coroutines.*
 import util.Logger
 import util.Stack
-import java.time.LocalTime
-import java.time.temporal.TemporalAmount
 import kotlin.Exception
+import kotlin.concurrent.thread
 import kotlin.system.measureNanoTime
 
 class RunnerException(msg: String): Exception(msg)
@@ -22,6 +22,8 @@ class Runner {
     lateinit var varTable: Array<Variable>
     lateinit var constTable: Array<ConstDecl>
     lateinit var functions: Array<FunDecl>
+
+    private val asyncVars = ArrayList<Pair<Int, Job>>()
 
     private val callStack = Stack<Int>()
 
@@ -40,8 +42,10 @@ class Runner {
             executeNode(root)
         }
 
+        if (!asyncVars.isEmpty()) {
+            logger.w("Not all async threads were terminated")
+        }
         logger.i("Execution ended")
-
 
         logger.i("Time taken: $timeTaken nanoseconds")
     }
@@ -136,7 +140,6 @@ class Runner {
 
                 return ExecutionResult(ValType.none, null)
             }
-
             is Expr  -> {
                 val result = evalExpr(node)
                 val type = when (result) {
@@ -202,6 +205,28 @@ class Runner {
                 require(result.type == functions[callStack.peek()].retType)
                     {"Return type error: expected ${functions[callStack.peek()].retType}, got ${result.type}"}
                 return result
+            }
+            is Async -> {
+                val j = GlobalScope.launch {
+                    val result = executeCall(node.c)
+                    require(result.type == varTable[node.id.refId].type)//todo: are these checks needed
+                    {"Async assign type error: expected ${varTable[node.id.refId].type}, got ${result.type}"}
+                    varTable[node.id.refId].value = result.value
+                }
+
+                asyncVars.add(Pair(node.id.refId, j))
+                return ExecutionResult(ValType.none, null)
+            }
+            is Await -> {
+                val index = asyncVars.indexOfFirst { it.first == node.id.refId}
+                if (index == -1) {
+                    throw RunnerException("Awaiting nonexistant async identifier ${node.id}")
+                }
+                val (_, j) = asyncVars[index]
+                while (!j.isCompleted) {}
+                //println("awaait completed")
+                asyncVars.removeAt(index)
+                return ExecutionResult(ValType.none, null)
             }
             else -> {
                 throw RunnerException("Execution encountered unsupported node: $node")

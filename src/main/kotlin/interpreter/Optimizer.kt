@@ -2,6 +2,7 @@ package interpreter
 
 import util.Logger
 import util.Stack
+import kotlin.math.E
 import kotlin.reflect.full.memberProperties
 
 class OptimizerException(msg: String): Exception(msg)
@@ -268,6 +269,13 @@ class Optimizer (val r: Runner) {
                 require(result.type == functions[callStack.peek()].retType)
                 {"Return type error: expected ${functions[callStack.peek()].retType}, got ${result.type}"}
                 return result
+            }
+            is Async -> {
+                optimizeCall(node.c, constOnly)
+                return ExecutionResult(ValType.none, null)
+            }
+            is Await -> {
+                return ExecutionResult(ValType.none, null)
             }
             else -> {
                 throw OptimizerException("Execution encountered unsupported node: $node")

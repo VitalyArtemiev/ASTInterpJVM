@@ -28,6 +28,8 @@ sealed class Stmt(t: Token) : ASTNode(t)
 class If(var condition: Expr, val s: Stmt, t: Token) : Stmt(t)//todo: replace statement with block
 class While(var condition: Expr, val s: Stmt, t: Token) : Stmt(t)
 class Return(var e: Expr, t: Token): Stmt(t)
+class Async(val id: Identifier, val c: Call, t: Token): Stmt(t)
+class Await(val id: Identifier, t: Token): Stmt(t)
 
 sealed class BaseBlock(t: Token): Stmt(t)
 class PrecompiledBlock(var f: ((params: Params?) -> Any?), t: Token): BaseBlock(t)
@@ -107,7 +109,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
         while (token.tokenType != EOF) {
             when (token.tokenType) {
                 varDecl, funDecl -> p.nodes.add(getDecl())
-                identifier, startBlock, ifStmt, whileStmt, retStmt -> p.nodes.add(getStmt())
+                identifier, startBlock, ifStmt, whileStmt, retStmt, asyncStmt, awaitStmt -> p.nodes.add(getStmt())
                 else -> {
                     logger.e("Decl or Stmt expected but $token found")
                     iter.next()
@@ -357,18 +359,48 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
         val token = iter.peek()
         return when (token.tokenType) {
             ifStmt -> {
-                expect(ifStmt)
+                iter.next()
                 If(getExpr(), getBlock(), token)
             }
             whileStmt -> {
-                expect(whileStmt)
+                iter.next()
                 While(getExpr(), getBlock(), token)
             }
             retStmt -> {
-                expect(retStmt)
+                iter.next()
                 Return(getExpr(), token)
             }
             startBlock -> getBlock()
+            asyncStmt -> {
+                iter.next()
+                val id = getIdentifier(Var, IdMode.Declare)
+                val type = getType()
+                id.valType = type
+
+                expect(equal)
+                iter.next() //jank
+                val c = getCall()
+
+                /*val f = findRelevantIdentifier(iter.next().text)
+                if (f.type != Fun) {
+                    throw ASTException("Expected function identifier, got $f")
+                }
+
+                if (functions[f.refId].retType != type) {
+                    throw ASTException("Type mismatch: expected $type, got ${functions[f.refId].retType}")
+                }*/
+
+                val v = VarDecl(id, type, null, token)
+                variables.add(v)
+
+                Async(id, c, token)
+            }
+            awaitStmt -> {
+                iter.next()
+                val id = findRelevantIdentifier(iter.next().text)
+
+                Await(id, token)
+            }
             identifier -> {
                 return when (findRelevantIdentifier(token.text).type) {
                     Var -> getAssign()
