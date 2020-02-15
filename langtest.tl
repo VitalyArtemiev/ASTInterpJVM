@@ -84,4 +84,8 @@ assertEquals(b, 6)
 
 {}
 
+a:= readInt()
+
+writeLn(a)
+
 _PRINTVARTABLE()

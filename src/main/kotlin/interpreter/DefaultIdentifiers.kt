@@ -44,12 +44,20 @@ fun assertEquals(params: Params?) {
     }
 }
 
+fun readInt(params: Params?): Int {
+    return readLine()!!.toInt()
+}
+
 val defaultIdentifiers: Array<ExternIdentifier> = arrayOf(
     ExternConstant("pi", ValType.float, 3.1415f),
 
     ExternFunction("writeLn",  arrayOf(Pair("arg", ValType.any)), ValType.none,
         PrecompiledBlock(::writeLn,
             Token(-2, "Precompiled function writeln", TokenTypeEnum.identifier, 1))),
+
+    ExternFunction("readInt",  arrayOf(), ValType.int,
+        PrecompiledBlock(::readInt,
+            Token(-2, "Precompiled function readInt", TokenTypeEnum.identifier, 1))),
 
     ExternFunction("assert", arrayOf(Pair("value", ValType.bool)), ValType.none,
         PrecompiledBlock(::assert,

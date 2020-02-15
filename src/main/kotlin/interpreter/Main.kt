@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
         defaultNonTerminals
     }
 
-    var path = "langtest.tl"
+    var path = "source.tl"
 
     val l = Lexer(terminalsText)
 

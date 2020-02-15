@@ -13,7 +13,7 @@ class Optimizer (val r: Runner) {
     lateinit var constTable: Array<ConstDecl>
     lateinit var functions: Array<FunDecl>
 
-    private val blockStack = Stack<ASTNode>()
+    private val emptyBlockStack = Stack<ASTNode>()
     private val callStack = Stack<Int>()
     private val assignStack = Stack<Int>()
 
@@ -25,11 +25,9 @@ class Optimizer (val r: Runner) {
         functions = env.functions
         root = env.root
 
-        printVarTable()
-
         optimizeNode(root, constOnly = false)
 
-        assert(blockStack.isEmpty())
+        assert(emptyBlockStack.isEmpty())
 
         for (v in varTable) {
             v.value = null
@@ -44,19 +42,6 @@ class Optimizer (val r: Runner) {
         return Environment(root, constTable.clone(), varTable, functions)
     }*/
 
-    fun printVarTable() {
-        println("${util.PURPLE}Variables: ${util.CYAN}")
-        for (v in varTable) {
-            println(v)
-        }
-        println(util.RESET)
-
-        println("${util.PURPLE}Constants: ${util.CYAN}")
-        for (v in constTable) {
-            println(v)
-        }
-        println(util.RESET)
-    }
 
     var canConst = true
 
@@ -139,7 +124,7 @@ class Optimizer (val r: Runner) {
                     optimizeCall(node, constOnly).value ?: throw OptimizerException("Call execution ($node) returned no value")
                 } else {
                     canConst = false
-                    executeCall(node).value ?: throw OptimizerException("Call execution ($node) returned no value")
+                    executeCall(node).value ?: throw UninitializedPropertyAccessException("Cannot execute external function at compile-time")
                 }
                 //todo: need to consider side effects
             }
@@ -166,54 +151,23 @@ class Optimizer (val r: Runner) {
     fun optimizeNode(node: ASTNode, constOnly: Boolean): ExecutionResult {
         when (node) {
             is Prog -> {
-                blockStack.push(node)
                 for (n in node.nodes) {
                     try {
                         optimizeNode(n, constOnly)
                     } catch (e: UninitializedPropertyAccessException) {
                         val varId = assignStack.pop()
                         varTable[varId].value = null
-                        logger.i("Could not evaluate ${varTable[varId]} at compile-time")
-
-                        logger.l(e.message!!)
+                        logger.i("Could not evaluate ${varTable[varId]} at compile-time, reason:\n ${e.message!!}")
                     }
                 }
-                blockStack.pop()
+                node.nodes.removeIf {it in emptyBlockStack}
 
                 return ExecutionResult(ValType.none, null)
             }
             is Block -> {
-                if (node.nodes.size == 0) {
-                    logger.w("Optimizer encountered empty block at $node; attempting to remove")
-                    val parentBlock = blockStack.peek()
-
-                    when (parentBlock) {
-                        is Prog -> {
-                            if (parentBlock.nodes.remove(node)) {
-                                logger.i("Removal successful")
-                            } else {
-                                logger.e("Removal failed; node: $node, parent: $parentBlock")
-                            }
-                        }
-                        is Block -> {
-                            if (parentBlock.nodes.remove(node)) {
-                                logger.i("Removal successful")
-                            } else {
-                                logger.e("Removal failed; node: $node, parent: $parentBlock")
-                            }
-                        }
-                        else -> logger.i("Cannot remove empty block: likely belongs to function or statement")
-                    }
-
-                    return ExecutionResult(ValType.none, null)
-                }
-
-                blockStack.push(node)
-
                 for (n in node.nodes) {
                     try {
                         if (n is Return) {
-                            blockStack.pop()
                             return optimizeNode(n, constOnly)
                         } else {
                             optimizeNode(n, constOnly)
@@ -226,7 +180,13 @@ class Optimizer (val r: Runner) {
                         logger.l(e.message!!)
                     }
                 }
-                blockStack.pop()
+                node.nodes.removeIf {it in emptyBlockStack}
+
+                if (node.nodes.size == 0) {
+                    logger.w("Optimizer encountered empty block at $node; attempting to remove")
+
+                    emptyBlockStack.push(node)
+                }
 
                 return ExecutionResult(ValType.none, null)
             }
@@ -298,7 +258,6 @@ class Optimizer (val r: Runner) {
                 try {
                     optimizeNode(node.s, constOnly = true)
                 } catch (e: OptimizerException) {
-                    blockStack.pop()
                     logger.i("Encountered var in loop block; leaving")
                 }
 
@@ -344,6 +303,18 @@ class Optimizer (val r: Runner) {
                 }
             } //execute function body block
             is PrecompiledBlock -> {
+                val signature = node.callee.params
+                val parResults = Params(node.callee.params.size) {null}
+                for ((i, p) in node.params.withIndex()) {
+                    val result = executeNode(p) //get param values
+                    if (signature[i].type != result.type && signature[i].type != ValType.any) { //check param types
+                        throw RunnerException("Precompiled function parameter type mismatch: expected ${signature[i].type}," +
+                                " got ${result.type}")
+                    }
+
+                    parResults[i] = result.value //init param variables
+                }
+
                 ExecutionResult(node.callee.retType, null)
             }
         }
@@ -415,7 +386,7 @@ class Optimizer (val r: Runner) {
             }
             is VarRef -> {
                 return varTable[node.varId].value ?:
-                throw RunnerException("Referencing uninitialised variable ${varTable[node.varId]} at $node")
+                throw UninitializedPropertyAccessException("Referencing uninitialised variable ${varTable[node.varId]} at $node")
             }
             is ConstRef -> {
                 return constTable[node.constId].value
@@ -558,16 +529,7 @@ class Optimizer (val r: Runner) {
                     parResults[i] = result.value //init param variables
                 }
 
-                val result = (node.callee.body as PrecompiledBlock).f(parResults)
-                val type: ValType = when(result) {
-                    is Int -> {ValType.int}
-                    is Float -> {ValType.float}
-                    is Boolean -> {ValType.bool}
-                    is Unit -> {return ExecutionResult(ValType.none, null)}
-                    else -> {throw RunnerException("Unsupported return type from precompiled function: $result")}
-                }
-
-                ExecutionResult(type, result)
+                ExecutionResult(node.callee.retType, null)
             }
         }
         callStack.pop()
