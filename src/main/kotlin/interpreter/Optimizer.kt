@@ -212,6 +212,10 @@ class Optimizer (val r: Runner) {
                     val result = optimizeNode(node.expr as Expr, constOnly)
                     require(result.type == varTable[node.identifier.refId].type)
                     {"Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
+
+                    if (canConst) node.expr = ConstVal(result.value!!, result.type, node.expr!!.token)
+                    canConst = true
+
                     varTable[node.identifier.refId].value = result.value
                 }
                 return ExecutionResult(ValType.none, null)

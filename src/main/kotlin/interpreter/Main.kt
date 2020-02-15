@@ -59,12 +59,16 @@ fun main(args: Array<String>) {
 
     logger.i("Parser finished")
 
+    //println(printTree(env.root))
+
     logger.d("Running unoptimized tree")
     r.run(env)
 
     val o = Optimizer(r)
 
     val optimizedEnv = o.optimize(env) //env is modified here
+
+    //println(printTree(optimizedEnv.root))
 
     logger.d("Running optimized tree")
     r.run(optimizedEnv)
