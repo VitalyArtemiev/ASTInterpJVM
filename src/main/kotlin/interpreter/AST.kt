@@ -452,7 +452,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
             c = Call(functions[id.refId], iter.cur())
             require(id.valType == c.callee.retType)
         } catch (e: Exception) {
-            throw ASTException("Could not find callee <$name>;\n$e")
+            throw ASTException("Could not find callee <$name>;\n$e") //todo: this gets thrown in case of func recursion
         }
 
         expect(openParenthesis)
@@ -486,22 +486,28 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
     }
 
     fun getExpr(): Expr {
-        val s  = simpExpr()
+        val s = getSimpExpr()
         if (iter.peek().tokenType in relOps) {
             val token = iter.next()
             val op = token.tokenType
-            val s1 = simpExpr()
+            val s1 = getSimpExpr()
             return BinOp(s, op, s1, token)
         }
         return s
     }
 
-    fun simpExpr(): Expr {
+    fun getSimpExpr(): Expr {
         var token: Token? = null
-        val unOp = when (iter.peek().tokenType ) {
-            plusOP  -> {token = iter.next(); unaryPlusOp}
-            minusOp -> {token = iter.next(); unaryMinusOp}
-            else -> {null}
+        val unOp = when (iter.peek().tokenType) {
+            plusOP -> {
+                token = iter.next(); unaryPlusOp
+            }
+            minusOp -> {
+                token = iter.next(); unaryMinusOp
+            }
+            else -> {
+                null
+            }
         }
 
         var left = getTerm()

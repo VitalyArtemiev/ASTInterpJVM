@@ -35,16 +35,14 @@ val addOps = setOf (plusOP, minusOp, orOP)
 val multOps = setOf (multOp, divOp, andOp)
 val relOps = setOf (equal, less, greater, notEqual, lequal, gequal)
 
-data class Token (val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD, val numInLine: Int) //todo add row info (hard because need to rw lexer)
+data class Token(val line: Int, var text: String, var tokenType: TokenTypeEnum = TBD, val numInLine: Int)
 
 fun <T> ArrayList<T>.pop(): T {
     return removeAt(lastIndex)
 }
 
 class Lexer {
-    constructor (terminals: String) {
-
-    }
+    constructor (terminals: String)
 
     val errors = ArrayList<Pair<Int, String>>()
 

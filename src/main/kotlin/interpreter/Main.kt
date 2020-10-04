@@ -2,7 +2,6 @@ package interpreter
 
 import util.Logger
 import java.io.File
-import kotlin.reflect.full.memberProperties
 
 var terminalsPath: String = " "
 var nonTerminalsPath: String = " "
@@ -34,7 +33,7 @@ fun main(args: Array<String>) {
         defaultNonTerminals
     }
 
-    var path = "source.tl"
+    var path = "langtest.tl"
 
     val l = Lexer(terminalsText)
 

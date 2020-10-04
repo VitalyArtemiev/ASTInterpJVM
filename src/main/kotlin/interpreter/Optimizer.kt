@@ -2,12 +2,11 @@ package interpreter
 
 import util.Logger
 import util.Stack
-import kotlin.math.E
 import kotlin.reflect.full.memberProperties
 
 class OptimizerException(msg: String): Exception(msg)
 
-class Optimizer (val r: Runner) {
+class Optimizer(val r: Runner) { //todo: execute everything that's not optimizable via runner to avoid code duplication
     private val logger = Logger("Optimizer")
 
     lateinit var varTable: Array<Variable>
@@ -146,8 +145,6 @@ class Optimizer (val r: Runner) {
             }
         }
     }
-
-    class ExecutionResult(val type: ValType, val value: Any?)
 
     fun optimizeNode(node: ASTNode, constOnly: Boolean): ExecutionResult {
         when (node) {

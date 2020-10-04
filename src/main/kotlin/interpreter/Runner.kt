@@ -1,20 +1,22 @@
 package interpreter
 
 import interpreter.TokenTypeEnum.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import util.Logger
 import util.Stack
-import kotlin.Exception
-import kotlin.concurrent.thread
 import kotlin.system.measureNanoTime
 
-class RunnerException(msg: String): Exception(msg)
+class RunnerException(msg: String) : Exception(msg)
 
-class Variable (val name: String, val type: ValType, var value: Any?) { //member of varTable
+class Variable(val name: String, val type: ValType, var value: Any?) { //member of varTable
     override fun toString(): String {
         return "$name: $type = $value"
     }
 }
+
+class ExecutionResult(val type: ValType, val value: Any?)
 
 class Runner {
     private val logger = Logger("Runner")
@@ -29,12 +31,18 @@ class Runner {
 
     lateinit var root: ASTNode
 
+    fun load(env: Environment) {
+        varTable = env.variables
+        constTable = env.constants
+        functions = env.functions
+        root = env.root
+    }
+
     fun run(env: Environment) {
         varTable = env.variables
         constTable = env.constants
         functions = env.functions
         root = env.root
-
 
         logger.i("Execution started")
 
@@ -115,8 +123,6 @@ class Runner {
         }
     }
 
-    class ExecutionResult(val type: ValType, val value: Any?)
-
     fun executeNode(node: ASTNode): ExecutionResult {
         when (node) {
             is Prog -> {
@@ -163,19 +169,22 @@ class Runner {
                 if (node.expr != null) {
                     val result = executeNode(node.expr as Expr)
                     require(result.type == varTable[node.identifier.refId].type)
-                        {"Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
+                    { "Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}" }
                     varTable[node.identifier.refId].value = result.value
                 }
                 return ExecutionResult(ValType.none, null)
             }
-            is ConstDecl, is FunDecl -> {
-                //todo: hmm
+            is ConstDecl -> {
+                return ExecutionResult(ValType.none, null)
+            }
+            is FunDecl -> {
+                //Todo: var alloc for recursive function calls
                 return ExecutionResult(ValType.none, null)
             }
             is Assign -> {
                 val result = executeNode(node.expr)
                 require(result.type == varTable[node.identifier.refId].type)//todo: are these checks needed
-                    {"Assign type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
+                { "Assign type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}" }
 
                 varTable[node.identifier.refId].value = result.value
                 return ExecutionResult(ValType.none, null)
@@ -183,11 +192,15 @@ class Runner {
             is If -> {
                 val result = executeNode(node.condition)
                 require(result.type == ValType.bool)//todo: are these checks needed
-                    {"Condition type error: expected bool, got ${result.type} "}
+                { "Condition type error: expected bool, got ${result.type} " }
 
                 return when (result.value as Boolean) {
-                    true -> { executeNode(node.s) }
-                    false -> { ExecutionResult(ValType.none, null) }
+                    true -> {
+                        executeNode(node.s)
+                    }
+                    false -> {
+                        ExecutionResult(ValType.none, null)
+                    }
                 }
             }
             is While -> {
