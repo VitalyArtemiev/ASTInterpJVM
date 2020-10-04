@@ -18,7 +18,7 @@ class Variable(val name: String, val type: ValType, var value: Any?) { //member 
 
 class ExecutionResult(val type: ValType, val value: Any?)
 
-class Runner {
+open class Runner {
     private val logger = Logger("Runner")
 
     lateinit var varTable: Array<Variable>
@@ -30,13 +30,6 @@ class Runner {
     private val callStack = Stack<Int>()
 
     lateinit var root: ASTNode
-
-    fun load(env: Environment) {
-        varTable = env.variables
-        constTable = env.constants
-        functions = env.functions
-        root = env.root
-    }
 
     fun run(env: Environment) {
         varTable = env.variables

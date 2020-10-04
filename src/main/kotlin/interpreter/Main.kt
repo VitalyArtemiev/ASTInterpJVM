@@ -63,7 +63,7 @@ fun main(args: Array<String>) {
     logger.d("Running unoptimized tree")
     r.run(env)
 
-    val o = Optimizer(r)
+    val o = Optimizer()
 
     val optimizedEnv = o.optimize(env) //env is modified here
 
