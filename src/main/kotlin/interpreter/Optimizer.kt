@@ -2,11 +2,12 @@ package interpreter
 
 import util.Logger
 import util.Stack
+import kotlin.reflect.KFunction
 import kotlin.reflect.full.memberProperties
 
 class OptimizerException(msg: String): Exception(msg)
 
-class Optimizer: Runner() { 
+class Optimizer: Runner() {
     private val logger = Logger("Optimizer")
 
     private val emptyBlockStack = Stack<ASTNode>()
@@ -32,27 +33,28 @@ class Optimizer: Runner() {
         return env
     }
 
-    /*fun getEnv(): Environment {
-        return Environment(root, constTable.clone(), varTable, functions)
-    }*/
+    var canOmitCall = true //when function has  side effects, call can't be omitted
 
-
-    var canConst = true
-
-    fun tryConst(node: ASTNode, const: ConstVal ): ASTNode {
-        return if (canConst) {
-            const
+    fun tryConst(original: Expr, optimized: Expr ): Expr {
+        val result = if (canOmitCall) {
+            ConstVal(optimized, getExprType(optimized), original.token)
         } else {
-            node
+            original
         }
+
+        canOmitCall = true
+
+        return result
     }
 
     fun optimizeExpr(node: Expr, constOnly: Boolean): Any {
         when (node) {
             is UnOp -> {
                 val right = optimizeExpr(node.right, constOnly)
-                if (canConst) node.right = ConstVal(right, getExprType(right), node.right.token)
-                canConst = true
+                //node.right = tryConst(node.right, right)
+
+                if (canOmitCall) node.right = ConstVal(right, getExprType(right), node.right.token)
+                canOmitCall = true
 
                 return when (node.op) {
                     TokenTypeEnum.unaryMinusOp -> {- right}
@@ -63,12 +65,12 @@ class Optimizer: Runner() {
             }
             is BinOp -> {
                 var left = optimizeExpr(node.left, constOnly)
-                if (canConst) node.left = ConstVal(left, getExprType(left), node.left.token)
-                canConst = true
+                if (canOmitCall) node.left = ConstVal(left, getExprType(left), node.left.token)
+                canOmitCall = true
 
                 var right = optimizeExpr(node.right, constOnly)
-                if (canConst) node.right = ConstVal(right, getExprType(right), node.right.token)
-                canConst = true
+                if (canOmitCall) node.right = ConstVal(right, getExprType(right), node.right.token)
+                canOmitCall = true
 
                 if (node.op in relOps) {
                     if (left is Float && right is Int) {
@@ -117,10 +119,9 @@ class Optimizer: Runner() {
                 return if (node.callee.body is Block && !hasSideEffects(node.callee.body as Block)) {
                     optimizeCall(node, constOnly).value ?: throw OptimizerException("Call execution ($node) returned no value")
                 } else {
-                    canConst = false
+                    canOmitCall = false
                     executeCall(node).value ?: throw UninitializedPropertyAccessException("Cannot execute external function at compile-time")
                 }
-                //todo: need to consider side effects
             }
             else -> {
                 throw OptimizerException("Expression evaluation encountered unsupported node: $node")
@@ -204,8 +205,8 @@ class Optimizer: Runner() {
                     require(result.type == varTable[node.identifier.refId].type)
                     {"Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
 
-                    if (canConst) node.expr = ConstVal(result.value!!, result.type, node.expr!!.token)
-                    canConst = true
+                    if (canOmitCall) node.expr = ConstVal(result.value!!, result.type, node.expr!!.token)
+                    canOmitCall = true
 
                     varTable[node.identifier.refId].value = result.value
                 }
@@ -220,8 +221,8 @@ class Optimizer: Runner() {
                 val result = optimizeNode(node.expr, constOnly)
                 require(result.type == varTable[node.identifier.refId].type)//todo: are these checks needed
                 {"Assign type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}"}
-                if (canConst) node.expr = ConstVal(result.value!!, result.type, node.expr.token)
-                canConst = true
+                if (canOmitCall) node.expr = ConstVal(result.value!!, result.type, node.expr.token)
+                canOmitCall = true
 
                 varTable[node.identifier.refId].value = result.value
                 assignStack.pop()
@@ -232,8 +233,8 @@ class Optimizer: Runner() {
                 require(result.type == ValType.bool)//todo: are these checks needed
                 {"Condition type error: expected bool, got ${result.type} "}
 
-                if (canConst) node.condition = ConstVal(result.value!!, result.type, node.condition.token)
-                canConst = true
+                if (canOmitCall) node.condition = ConstVal(result.value!!, result.type, node.condition.token)
+                canOmitCall = true
 
                 return when (result.value as Boolean) {
                     true -> { optimizeNode(node.s, constOnly) }
@@ -249,7 +250,7 @@ class Optimizer: Runner() {
                     logger.i("Encountered var in loop condition; leaving")
                 }
 
-                //node.condition = ConstVal(result.value!!, result.type, node.condition.token)
+                //node.condition = ConstVal(result.value!!, result.type, node.condition.token) //todo: introduce break and adjust this
 
                 try {
                     optimizeNode(node.s, constOnly = true)
@@ -309,7 +310,14 @@ class Optimizer: Runner() {
                 val signature = node.callee.params
                 val parResults = Params(node.callee.params.size) {null}
                 for ((i, p) in node.params.withIndex()) {
-                    val result = executeNode(p) //get param values
+                    val result = optimizeNode(p, constOnly) //get param values
+
+                    when (result.value) {
+                        is Expr ->  node.params[i] = result.value
+                        is Number -> node.params[i] = ConstVal(result.value, result.type, node.params[i].token)
+                        else -> {}
+                    }
+
                     if (signature[i].type != result.type && signature[i].type != ValType.any) { //check param types
                         throw RunnerException("Precompiled function parameter type mismatch: expected ${signature[i].type}," +
                                 " got ${result.type}")
@@ -339,55 +347,5 @@ class Optimizer: Runner() {
             }
         }
         return false
-    }
-}
-
-class ASTCrawler (val r: Runner) {
-    class History(var node: ASTNode) {
-        var lastVisited: Int = -1
-    }
-    val stack = Stack<History>()
-
-    var curNode: ASTNode
-        get() = stack.peek().node
-        set(value) { stack.push(History(value)) }
-
-
-    fun visitChild(node: ASTNode) {
-        for (p in curNode::class.memberProperties) {
-            val v = p.getter.call(curNode)
-            when (v) {
-                is Prog -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-                is Block -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-
-                is ASTNode -> {
-                    if (!checkLeaf(v)) {
-                        visitChild(node)
-                    } else {
-                        //r.evalExpr(v)
-
-                    }
-                }
-            }
-        }
-
-        //curNode = curNode.children[index]
-    }
-
-    fun checkLeaf(node: ASTNode): Boolean {
-        return when (node) {
-            is ConstVal, is ConstRef -> true
-            is VarRef -> {
-                TODO()}
-            else -> false
-        }
     }
 }

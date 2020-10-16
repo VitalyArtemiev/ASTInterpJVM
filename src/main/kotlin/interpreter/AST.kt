@@ -5,11 +5,19 @@ import interpreter.TokenTypeEnum.*
 import util.Logger
 import util.Stack
 import util.toRandomAccessIterator
+import kotlin.reflect.full.memberProperties
 
 class ASTException(msg: String): Exception(msg)
 
 sealed class ASTNode(val token: Token) {
     override fun toString(): String = "Pos ${token.line}:${token.numInLine} - ${token.tokenType}: ${token.text}"
+    fun toCode(): String {
+        var s = ""
+        for (node in this::class.memberProperties.filterIsInstance<ASTNode>()) {
+            s += node.toCode()
+        }
+        return s
+    }
 }
 
 class Prog(t: Token) : ASTNode(t) {
@@ -586,6 +594,10 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
                 throw ASTException("Impossible state: expected base, got $token")
             }
         }
+    }
+
+    override fun toString(): String {
+        return root.toCode()
     }
 }
 

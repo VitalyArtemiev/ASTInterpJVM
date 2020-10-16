@@ -60,6 +60,7 @@ while (a <= 5) {
     a:= a + 1
     b:= b - 1
 }
+_PRINTLINEINFO()
 assertEquals(a , 6)
 assertEquals(b, -1)
 
@@ -84,7 +85,7 @@ assertEquals(b, 6)
 
 {}
 
-a:= readInt()
+#a:= readInt()
 
 writeLn(a)
 

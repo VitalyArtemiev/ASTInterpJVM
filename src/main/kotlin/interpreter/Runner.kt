@@ -6,6 +6,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import util.Logger
 import util.Stack
+import kotlin.reflect.full.functions
+import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaMethod
 import kotlin.system.measureNanoTime
 
 class RunnerException(msg: String) : Exception(msg)
@@ -31,6 +35,8 @@ open class Runner {
 
     lateinit var root: ASTNode
 
+    val crawler = ASTCrawler()
+
     fun run(env: Environment) {
         varTable = env.variables
         constTable = env.constants
@@ -52,11 +58,13 @@ open class Runner {
     }
 
     fun evalExpr(node: Expr): Any {
-        when (node) {
+        crawler.curNode = node
+
+        val result = when (node) {
             is UnOp -> {
                 val right = evalExpr(node.right)
 
-                return when (node.op) {
+                when (node.op) {
                     unaryMinusOp -> {- right}
                     unaryPlusOp -> {right}
                     notOp -> {! right}
@@ -75,7 +83,7 @@ open class Runner {
                     }
                 }
 
-                val result = when (node.op) {
+                when (node.op) {
                     plusOP -> {left + right}
                     minusOp -> {left - right}
                     divOp -> {left / right}
@@ -94,35 +102,39 @@ open class Runner {
                     gequal -> {left as Comparable<Any> >= right}
                     else -> {throw RunnerException("Expression evaluation encountered unsupported operator: $node")}
                 }
-
-                return result
             }
             is VarRef -> {
-                return varTable[node.varId].value ?:
+                varTable[node.varId].value ?:
                 throw RunnerException("Referencing uninitialised variable ${varTable[node.varId]} at $node")
             }
             is ConstRef -> {
-                return constTable[node.constId].value
+                constTable[node.constId].value
             }
             is ConstVal -> {
-                return node.value
+                node.value
             }
             is Call -> {
-                return executeCall(node).value ?: throw RunnerException("Call execution ($node) returned no value")
+                executeCall(node).value ?: throw RunnerException("Call execution ($node) returned no value")
             }
             else -> {
                 throw RunnerException("Expression evaluation encountered unsupported node: $node")
             }
         }
+
+        crawler.pop()
+        return result
     }
 
     fun executeNode(node: ASTNode): ExecutionResult {
-        when (node) {
+        crawler.curNode = node
+
+        val result = when (node) {
             is Prog -> {
                 for (n in node.nodes) {
                     executeNode(n)
                 }
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             is Block -> {
                 if (node.nodes.size == 0) {
@@ -131,13 +143,13 @@ open class Runner {
 
                 for (n in node.nodes) {
                     if (n is Return) {
-                        return executeNode(n)
+                        executeNode(n)
                     } else {
                         executeNode(n)
                     }
                 }
 
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is Expr  -> {
                 val result = evalExpr(node)
@@ -150,13 +162,14 @@ open class Runner {
                         ValType.none
                     }
                 }
-                return ExecutionResult(type, result)
+
+                ExecutionResult(type, result)
             }
             is Call  -> {
-                return executeCall(node)
+                executeCall(node)
             }
             is CallStmt -> {
-                return executeCall(node.call)
+                executeCall(node.call)
             }
             is VarDecl -> {
                 if (node.expr != null) {
@@ -165,14 +178,14 @@ open class Runner {
                     { "Declaration assignment type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}" }
                     varTable[node.identifier.refId].value = result.value
                 }
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is ConstDecl -> {
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is FunDecl -> {
                 //Todo: var alloc for recursive function calls
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is Assign -> {
                 val result = executeNode(node.expr)
@@ -180,14 +193,14 @@ open class Runner {
                 { "Assign type error: expected ${varTable[node.identifier.refId].type}, got ${result.type}" }
 
                 varTable[node.identifier.refId].value = result.value
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is If -> {
                 val result = executeNode(node.condition)
                 require(result.type == ValType.bool)//todo: are these checks needed
                 { "Condition type error: expected bool, got ${result.type} " }
 
-                return when (result.value as Boolean) {
+                when (result.value as Boolean) {
                     true -> {
                         executeNode(node.s)
                     }
@@ -204,13 +217,15 @@ open class Runner {
                     executeNode(node.s)
                     result = executeNode(node.condition)
                 }
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             is Return -> {
-                var result = executeNode(node.e)
+                val result = executeNode(node.e)
                 require(result.type == functions[callStack.peek()].retType)
                     {"Return type error: expected ${functions[callStack.peek()].retType}, got ${result.type}"}
-                return result
+
+                result
             }
             is Async -> {
                 val j = GlobalScope.launch {
@@ -221,7 +236,8 @@ open class Runner {
                 }
 
                 asyncVars.add(Pair(node.id.refId, j))
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             is Await -> {
                 val index = asyncVars.indexOfFirst { it.first == node.id.refId}
@@ -230,17 +246,23 @@ open class Runner {
                 }
                 val (_, j) = asyncVars[index]
                 while (!j.isCompleted) {}
-                //println("awaait completed")
+                //println("await completed")
                 asyncVars.removeAt(index)
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             else -> {
                 throw RunnerException("Execution encountered unsupported node: $node")
             }
         }
+
+        crawler.pop()
+        return result
     }
 
     fun executeCall(node: Call): ExecutionResult {
+        crawler.curNode = node
+
         callStack.push(node.callee.identifier.refId)
         val result = when (node.callee.body) {
             is Block -> {
@@ -275,7 +297,7 @@ open class Runner {
                     is Int -> {ValType.int}
                     is Float -> {ValType.float}
                     is Boolean -> {ValType.bool}
-                    is Unit -> {return ExecutionResult(ValType.none, null)}
+                    is Unit -> {return ExecutionResult(ValType.none, null)} //TODO: potentially massive bug, callstack and crawler aren't popped
                     else -> {throw RunnerException("Unsupported return type from precompiled function: $result")}
                 }
 
@@ -283,6 +305,8 @@ open class Runner {
             }
         }
         callStack.pop()
+
+        crawler.pop()
         return result
     }
 
@@ -299,4 +323,86 @@ open class Runner {
         }
         println(util.RESET)
     }
+
+    fun printLineInfo(params: Params?) {
+        print(util.PURPLE)
+        println("Line ${crawler.curNode.token.line}, word ${crawler.curNode.token.numInLine}")
+        print(util.RESET)
+
+        crawler.printStack()
+    }
 }
+
+class ASTCrawler {
+    class History(var node: ASTNode) {
+        var lastVisited: Int = -1
+        override fun toString(): String {
+            return node.toString()
+        }
+    }
+
+    val stack = Stack<History>()
+    val path = Stack<History>()
+
+    var curNode: ASTNode
+        get() = stack.peek().node
+        set(value) {
+            stack.push(History(value))
+        }
+
+    fun pop(): History {
+        val result = stack.pop()
+        path.push(History(curNode))
+        return result
+    }
+
+    fun printStack() {
+        logger.d("Current AST branch:")
+        logger.l(stack.toString())
+    }
+
+    fun printPath() {
+        logger.d("Path taken:")
+        logger.l(path.toString())
+    }
+
+    fun visitChild(node: ASTNode) {
+        for (p in curNode::class.memberProperties) {
+            val v = p.getter.call(curNode)
+            when (v) {
+                is Prog -> {
+                    for (n in v.nodes) {
+                        visitChild(n)
+                    }
+                }
+                is Block -> {
+                    for (n in v.nodes) {
+                        visitChild(n)
+                    }
+                }
+
+                is ASTNode -> {
+                    if (!checkLeaf(v)) {
+                        visitChild(node)
+                    } else {
+                        //r.evalExpr(v)
+
+                    }
+                }
+            }
+        }
+
+        //curNode = curNode.children[index]
+    }
+
+    fun checkLeaf(node: ASTNode): Boolean {
+        return when (node) {
+            is ConstVal, is ConstRef -> true
+            is VarRef -> {
+                TODO()
+            }
+            else -> false
+        }
+    }
+}
+
