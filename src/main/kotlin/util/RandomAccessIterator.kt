@@ -1,6 +1,6 @@
 package util
 
-class RandomAccessIterator<T> internal constructor( delegate: ArrayList<T>) : MutableList<T> by delegate {
+class RandomAccessIterator<T> internal constructor( delegate: MutableList<T>) : MutableList<T> by delegate {
     private var cur = 0
     fun cur(): T = this[cur-1]
     fun next(): T = this[cur++]

@@ -213,7 +213,6 @@ class Optimizer: Runner() {
                 return ExecutionResult(ValType.none, null)
             }
             is ConstDecl, is FunDecl -> {
-                //todo: hmm
                 return ExecutionResult(ValType.none, null)
             }
             is Assign -> {
