@@ -1,4 +1,7 @@
 {
+var a: int
+var b: float
+var c: float
     a:=-1
     b:= 2 + 3.1412
     c:= a - b
@@ -14,5 +17,5 @@
 
     b:= a * c
 
-    _PRINTVARTABLE
+    _PRINTVARTABLE()
 }
