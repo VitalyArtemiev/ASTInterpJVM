@@ -6,10 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import util.Logger
 import util.Stack
-import kotlin.reflect.full.functions
-import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.jvm.javaMethod
 import kotlin.system.measureNanoTime
 
 class RunnerException(msg: String) : Exception(msg)
@@ -114,7 +111,8 @@ open class Runner {
                 node.value
             }
             is Call -> {
-                executeCall(node).value ?: throw RunnerException("Call execution ($node) returned no value")
+                executeCall(node).value ?:
+                throw RunnerException("Call execution ($node) returned no value")
             }
             else -> {
                 throw RunnerException("Expression evaluation encountered unsupported node: $node")
@@ -141,15 +139,18 @@ open class Runner {
                     logger.w("Runner encountered empty block at $node")
                 }
 
+                var result: ExecutionResult = ExecutionResult(ValType.none, null)
+
                 for (n in node.nodes) {
                     if (n is Return) {
-                        executeNode(n)
+                        result = executeNode(n)
+                        break
                     } else {
                         executeNode(n)
                     }
                 }
 
-                ExecutionResult(ValType.none, null)
+                result
             }
             is Expr  -> {
                 val result = evalExpr(node)
@@ -297,7 +298,7 @@ open class Runner {
                     is Int -> {ValType.int}
                     is Float -> {ValType.float}
                     is Boolean -> {ValType.bool}
-                    is Unit -> {return ExecutionResult(ValType.none, null)} //TODO: potentially massive bug, callstack and crawler aren't popped
+                    is Unit -> {ValType.none}
                     else -> {throw RunnerException("Unsupported return type from precompiled function: $result")}
                 }
 
@@ -351,8 +352,8 @@ class ASTCrawler {
         }
 
     fun pop(): History {
-        val result = stack.pop()
         path.push(History(curNode))
+        val result = stack.pop()
         return result
     }
 

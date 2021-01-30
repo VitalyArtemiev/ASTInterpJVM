@@ -1,10 +1,9 @@
 package interpreter
 
-import util.RandomAccessIterator
-import kotlin.collections.ArrayList
 import util.Logger
+import util.RandomAccessIterator
 
-class Parser() {
+class Parser {
     val logger = Logger("Parser")
     lateinit var iter: RandomAccessIterator<Token>
 
@@ -13,7 +12,14 @@ class Parser() {
     var import = ArrayList<ExternIdentifier>()
 
     fun parse(tokens: ArrayList<Token>): Environment {
-        tree = AST(tokens, import.toTypedArray())
+        try {
+            tree = AST(tokens, import.toTypedArray())
+        } catch (e: ASTException) {
+            logger.e(e.message!!)
+            logger.d(e.stackTrace.contentToString())
+            throw Exception("Parser encountered a problem, halting")
+        }
+
         val constants = tree.constants.toTypedArray()
         val variables = tree.extractVariables()
         val functions = tree.functions.toTypedArray()

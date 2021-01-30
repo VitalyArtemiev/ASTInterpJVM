@@ -74,6 +74,8 @@ if false {
 }
 assertEquals(a, 1)
 
+assertEquals(a, 5)
+
 fun f(): int {
     a:= 5
     return a + 1
@@ -82,6 +84,15 @@ fun f(): int {
 b:= f()
 assertEquals(a, 5)
 assertEquals(b, 6)
+
+#fun f1(): int {
+#   a:= 5
+#    return a
+#}
+#bug here
+#f1()
+
+
 
 {}
 

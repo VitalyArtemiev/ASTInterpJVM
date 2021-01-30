@@ -2,8 +2,6 @@ package interpreter
 
 import util.Logger
 import util.Stack
-import kotlin.reflect.KFunction
-import kotlin.reflect.full.memberProperties
 
 class OptimizerException(msg: String): Exception(msg)
 
@@ -48,7 +46,9 @@ class Optimizer: Runner() {
     }
 
     fun optimizeExpr(node: Expr, constOnly: Boolean): Any {
-        when (node) {
+        crawler.curNode = node
+
+        val result = when (node) {
             is UnOp -> {
                 val right = optimizeExpr(node.right, constOnly)
                 //node.right = tryConst(node.right, right)
@@ -56,7 +56,7 @@ class Optimizer: Runner() {
                 if (canOmitCall) node.right = ConstVal(right, getExprType(right), node.right.token)
                 canOmitCall = true
 
-                return when (node.op) {
+                when (node.op) {
                     TokenTypeEnum.unaryMinusOp -> {- right}
                     TokenTypeEnum.unaryPlusOp -> {right}
                     TokenTypeEnum.notOp -> {! right}
@@ -100,23 +100,23 @@ class Optimizer: Runner() {
                     else -> {throw OptimizerException("Expression evaluation encountered unsupported operator: $node")}
                 }
 
-                return result
+                result
             }
             is VarRef -> {
                 if (constOnly) {
                     throw OptimizerException("Trying to access variable in a const-only context")
                 }
-                return varTable[node.varId].value ?:
+                varTable[node.varId].value ?:
                 throw OptimizerException("Referencing uninitialised variable ${varTable[node.varId]} at $node")
             }
             is ConstRef -> {
-                return constTable[node.constId].value
+                constTable[node.constId].value
             }
             is ConstVal -> {
-                return node.value
+                node.value
             }
             is Call -> {
-                return if (node.callee.body is Block && !hasSideEffects(node.callee.body as Block)) {
+                if (node.callee.body is Block && !hasSideEffects(node.callee.body as Block)) {
                     optimizeCall(node, constOnly).value ?: throw OptimizerException("Call execution ($node) returned no value")
                 } else {
                     canOmitCall = false
@@ -127,6 +127,9 @@ class Optimizer: Runner() {
                 throw OptimizerException("Expression evaluation encountered unsupported node: $node")
             }
         }
+
+        crawler.pop()
+        return result
     }
 
     fun getExprType(result: Any): ValType {
@@ -142,7 +145,9 @@ class Optimizer: Runner() {
     }
 
     fun optimizeNode(node: ASTNode, constOnly: Boolean): ExecutionResult {
-        when (node) {
+        crawler.curNode = node
+
+        val result = when (node) {
             is Prog -> {
                 for (n in node.nodes) {
                     try {
@@ -155,13 +160,19 @@ class Optimizer: Runner() {
                 }
                 node.nodes.removeIf {it in emptyBlockStack}
 
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is Block -> {
-                for (n in node.nodes) {
+                var result: ExecutionResult = ExecutionResult(ValType.none, null)
+
+                var breakIndex: Int = -1
+
+                for ((i, n) in node.nodes.withIndex()) {
                     try {
                         if (n is Return) {
-                            return optimizeNode(n, constOnly)
+                            result = optimizeNode(n, constOnly)
+                            breakIndex = i + 1
+                            break
                         } else {
                             optimizeNode(n, constOnly)
                         }
@@ -173,6 +184,11 @@ class Optimizer: Runner() {
                         logger.l(e.message!!)
                     }
                 }
+                //todo: this is actually wrong - what if returns are in different branches?
+                if (breakIndex > -1) {//remove everything after return
+                    node.nodes.dropLast(node.nodes.count() - breakIndex)
+                }
+
                 node.nodes.removeIf {it in emptyBlockStack}
 
                 if (node.nodes.size == 0) {
@@ -181,23 +197,22 @@ class Optimizer: Runner() {
                     emptyBlockStack.push(node)
                 }
 
-                return ExecutionResult(ValType.none, null)
+                result
             }
-
             is Expr -> {
                 val result = optimizeExpr(node, constOnly)
                 val type = getExprType(result)
-                return ExecutionResult(type, result)
+                ExecutionResult(type, result)
             }
             is Call -> {
-                return if (node.callee.body is Block && !hasSideEffects(node.callee.body as Block)) {
+                if (node.callee.body is Block && !hasSideEffects(node.callee.body as Block)) {
                     optimizeCall(node, constOnly)
                 } else {
                     executeCall(node)
                 }
             }
             is CallStmt -> {
-                return optimizeCall(node.call, constOnly)
+                optimizeCall(node.call, constOnly)
             }
             is VarDecl -> {
                 if (node.expr != null) {
@@ -210,10 +225,10 @@ class Optimizer: Runner() {
 
                     varTable[node.identifier.refId].value = result.value
                 }
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is ConstDecl, is FunDecl -> {
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is Assign -> {
                 assignStack.push(node.identifier.refId)
@@ -225,7 +240,8 @@ class Optimizer: Runner() {
 
                 varTable[node.identifier.refId].value = result.value
                 assignStack.pop()
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             is If -> {
                 val result = optimizeNode(node.condition, constOnly)
@@ -235,14 +251,14 @@ class Optimizer: Runner() {
                 if (canOmitCall) node.condition = ConstVal(result.value!!, result.type, node.condition.token)
                 canOmitCall = true
 
-                return when (result.value as Boolean) {
+                when (result.value as Boolean) {
                     true -> { optimizeNode(node.s, constOnly) }
                     false -> { ExecutionResult(ValType.none, null) }
                 }
             }
             is While -> {
                 try {
-                    var result = optimizeNode(node.condition, constOnly = true)
+                    val result = optimizeNode(node.condition, constOnly = true)
                     require(result.type == ValType.bool)
                     { "Condition type error: expected bool, got ${result.type} " }
                 } catch (e: OptimizerException) {
@@ -257,28 +273,34 @@ class Optimizer: Runner() {
                     logger.i("Encountered var in loop block; leaving")
                 }
 
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             is Return -> {
-                var result = optimizeNode(node.e, constOnly)
+                val result = optimizeNode(node.e, constOnly)
                 require(result.type == functions[callStack.peek()].retType)
                 {"Return type error: expected ${functions[callStack.peek()].retType}, got ${result.type}"}
-                return result
+                result
             }
             is Async -> {
                 optimizeCall(node.c, constOnly)
-                return ExecutionResult(ValType.none, null)
+
+                ExecutionResult(ValType.none, null)
             }
             is Await -> {
-                return ExecutionResult(ValType.none, null)
+                ExecutionResult(ValType.none, null)
             }
             else -> {
                 throw OptimizerException("Execution encountered unsupported node: $node")
             }
         }
+
+        crawler.pop()
+        return result
     }
 
     fun optimizeCall(node: Call, constOnly: Boolean): ExecutionResult {
+        crawler.curNode = node
+
         callStack.push(node.callee.identifier.refId)
         val result = when (node.callee.body) {
             is Block -> {
@@ -329,6 +351,9 @@ class Optimizer: Runner() {
             }
         }
         callStack.pop()
+
+        crawler.pop()
+
         return result
     }
 

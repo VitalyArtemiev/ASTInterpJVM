@@ -35,6 +35,8 @@ fun main(args: Array<String>) {
 
     var path = "langtest.tl"
 
+    logger.i("Running $path")
+
     val l = Lexer(terminalsText)
 
     val tokens = l.lex(path)
