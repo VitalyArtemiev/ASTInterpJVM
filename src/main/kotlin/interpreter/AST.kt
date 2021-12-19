@@ -64,7 +64,7 @@ enum class IdentifierType { Const, Var, Fun }
 
 class Identifier(
     val type: IdentifierType,
-    val name: String, //name initialized here cuz i needed to pass it in manually in Call()
+    val name: String, //name initialized here cuz I needed to pass it in manually in Call()
     val scopeLevel: Int, val scopeIndex: Int, t: Token
 ) : ASTNode(t) {
     var refId: Int = -1
@@ -74,7 +74,7 @@ class Identifier(
 }
 
 class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
-    val logger = Logger("AST Parser")
+    private val logger = Logger("AST Parser")
 
     var iter = tokens.toRandomAccessIterator()
 
@@ -200,7 +200,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
 
                 if (id.valType != ValType.none) {
                     val returns = block.nodes.filterIsInstance<Return>()
-                    if (returns.count() == 0) {
+                    if (returns.isEmpty()) {
                         throw ASTException(iter.peek(), "Function return type declared as ${id.valType} but found no return statement")
                     }
 
@@ -292,7 +292,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
 
     fun getIdentifier(
         type: IdentifierType, mode: IdMode,
-        name: String = iter.next().text, //name initialized here cuz i needed to pass it in manually in Call()
+        name: String = iter.next().text, //name initialized here cuz I needed to pass it in manually in Call()
         actualScopeLevel: Int = -1, actualScopeIndex: Int = -1
     ): Identifier {
 
@@ -347,10 +347,10 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
         val candidates = identifiers.filter {
             it.name == name && (it.scopeIndex == curScopeIndex || it.scopeIndex in scopes)
         }
-        if (candidates.count() == 0) {
+        if (candidates.isEmpty()) {
             throw ASTException(iter.peek(), "Identifier <$name> not found")
         }
-        return candidates.maxBy { it.scopeLevel }!! //literally can't be null
+        return candidates.maxByOrNull { it.scopeLevel }!! //literally can't be null
     }
 
     fun exportIdentifiers(): Array<ExternIdentifier> {
@@ -362,6 +362,7 @@ class AST(tokens: ArrayList<Token>, import: Array<ExternIdentifier>? = null) {
                 Fun -> export.add(ExternFunction(id.name,
                     (functions[id.refId].params.map { p -> Pair(p.identifier.name, p.type) }.toTypedArray()),
                     functions[id.refId].retType, functions[id.refId].body))
+                else -> {}
             }
         }
         return export.toTypedArray()

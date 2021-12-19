@@ -53,7 +53,7 @@ class Optimizer: Runner() {
         val result = when (node) {
             is UnOp -> {
                 val right = optimizeExpr(node.right, constOnly)
-                //node.right = tryConst(node.right, right)
+                //node.right = tryConst(node.right, right) //I was supposed to replace the following 2 lines with this
 
                 if (canOmitCall) node.right = ConstVal(right, getExprType(right), node.right.token)
                 canOmitCall = true
@@ -125,9 +125,6 @@ class Optimizer: Runner() {
                     executeCall(node).value ?: throw UninitializedPropertyAccessException("Cannot execute external function at compile-time")
                 }
             }
-            else -> {
-                throw OptimizerException("Expression evaluation encountered unsupported node: $node")
-            }
         }
 
         crawler.pop()
@@ -165,7 +162,7 @@ class Optimizer: Runner() {
                 ExecutionResult(ValType.none, null)
             }
             is Block -> {
-                var result: ExecutionResult = ExecutionResult(ValType.none, null)
+                var result = ExecutionResult(ValType.none, null)
 
                 var breakIndex: Int = -1
 
@@ -370,6 +367,7 @@ class Optimizer: Runner() {
                 is Call -> {
                     return true //todo: implement recursive checks via passable stack
                 }
+                else -> {}
             }
         }
         return false
