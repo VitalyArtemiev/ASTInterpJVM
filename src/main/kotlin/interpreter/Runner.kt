@@ -6,7 +6,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import util.Logger
 import util.Stack
-import kotlin.reflect.full.memberProperties
 import kotlin.system.measureNanoTime
 
 class RunnerException(msg: String) : Exception(msg)
@@ -32,7 +31,7 @@ open class Runner {
 
     lateinit var root: ASTNode
 
-    val crawler = ASTCrawler()
+    open val crawler = ASTCrawler(logger)
 
     fun run(env: Environment) {
         varTable = env.variables
@@ -332,77 +331,23 @@ open class Runner {
 
         crawler.printStack()
     }
-}
 
-class ASTCrawler {
-    class History(var node: ASTNode) {
-        var lastVisited: Int = -1
-        override fun toString(): String {
-            return node.toString()
+    fun assert(params: Params?) {
+        require(params != null && params.isNotEmpty() && params[0] is Boolean)
+        if (params[0] as Boolean) {
+            logger.i("Assertion passed")
+        } else {
+            logger.e("Assertion failed")
         }
     }
 
-    val stack = Stack<History>()
-    val path = Stack<History>()
-
-    var curNode: ASTNode
-        get() = stack.peek().node
-        set(value) {
-            stack.push(History(value))
-        }
-
-    fun pop(): History {
-        path.push(History(curNode))
-        val result = stack.pop()
-        return result
-    }
-
-    fun printStack() {
-        logger.d("Current AST branch:")
-        logger.l(stack.toString())
-    }
-
-    fun printPath() {
-        logger.d("Path taken:")
-        logger.l(path.toString())
-    }
-
-    fun visitChild(node: ASTNode) {
-        for (p in curNode::class.memberProperties) {
-            val v = p.getter.call(curNode)
-            when (v) {
-                is Prog -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-                is Block -> {
-                    for (n in v.nodes) {
-                        visitChild(n)
-                    }
-                }
-
-                is ASTNode -> {
-                    if (!checkLeaf(v)) {
-                        visitChild(node)
-                    } else {
-                        //r.evalExpr(v)
-
-                    }
-                }
-            }
-        }
-
-        //curNode = curNode.children[index]
-    }
-
-    fun checkLeaf(node: ASTNode): Boolean {
-        return when (node) {
-            is ConstVal, is ConstRef -> true
-            is VarRef -> {
-                TODO()
-            }
-            else -> false
+    fun assertEquals(params: Params?) {
+        val location = "Line ${crawler.curNode.token.line}, word ${crawler.curNode.token.numInLine}"
+        require(params != null && params.size == 2)
+        if (params[0] == params[1]) {
+            logger.i("Assertion passed: ${params[0]} = ${params[1]}; $location")
+        } else {
+            logger.e("Assertion failed: ${params[0]} = ${params[1]}; $location")
         }
     }
 }

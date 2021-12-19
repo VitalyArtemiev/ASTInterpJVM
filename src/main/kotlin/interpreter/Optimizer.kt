@@ -8,6 +8,8 @@ class OptimizerException(msg: String): Exception(msg)
 class Optimizer: Runner() {
     private val logger = Logger("Optimizer")
 
+    override val crawler = ASTCrawler(logger)
+
     private val emptyBlockStack = Stack<ASTNode>()
     private val callStack = Stack<Int>()
     private val assignStack = Stack<Int>()

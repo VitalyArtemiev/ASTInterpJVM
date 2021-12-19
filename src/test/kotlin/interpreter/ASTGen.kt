@@ -3,6 +3,13 @@ package interpreter
 import kotlin.random.Random
 import kotlin.reflect.full.createInstance
 
+class RandomTester<T> {
+    fun instantiateRandom(cl: Class): T {
+        val c = T::class.sealedSubclasses[Random.nextInt(n)]
+
+    }
+}
+
 class FullSystemTest {
     // @Test
     fun test() {

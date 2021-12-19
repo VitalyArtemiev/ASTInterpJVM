@@ -49,10 +49,33 @@ fun main(args: Array<String>) {
     val r = Runner()
 
     val runTimeIdentifiers: Array<ExternIdentifier> = arrayOf(
-        ExternFunction("_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(r::printVarTable,
-            Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier, 1))),
-        ExternFunction("_PRINTLINEINFO", null, ValType.none, PrecompiledBlock(r::printLineInfo,
-            Token(-2, "Precompiled function _PRINTLINEINFO", TokenTypeEnum.identifier, 1)))
+        ExternFunction(
+            "_PRINTVARTABLE", null, ValType.none, PrecompiledBlock(
+                r::printVarTable,
+                Token(-2, "Precompiled function _PRINTVARTABLE", TokenTypeEnum.identifier, 1)
+            )
+        ),
+        ExternFunction(
+            "_PRINTLINEINFO", null, ValType.none, PrecompiledBlock(
+                r::printLineInfo,
+                Token(-2, "Precompiled function _PRINTLINEINFO", TokenTypeEnum.identifier, 1)
+            )
+        ),
+        ExternFunction(
+            "assert", arrayOf(Pair("value", ValType.bool)), ValType.none,
+            PrecompiledBlock(
+                r::assert,
+                Token(-2, "Precompiled function assert", TokenTypeEnum.identifier, 1)
+            )
+        ),
+        ExternFunction(
+            "assertEquals", arrayOf(Pair("value1", ValType.any), Pair("value2", ValType.any)),
+            ValType.none,
+            PrecompiledBlock(
+                r::assertEquals,
+                Token(-2, "Precompiled function assertEquals", TokenTypeEnum.identifier, 1)
+            )
+        )
     )
 
     val p = Parser(/*nonTerminalsText*/)
